@@ -77,6 +77,7 @@ struct xdpw_screencast_instance {
 	uint32_t refcount;
 	struct xdpw_screencast_context *ctx;
 	bool initialized;
+	enum xdpw_instance_type type;
 
 	// pipewire
 	struct spa_source *event;
