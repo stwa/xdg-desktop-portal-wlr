@@ -25,6 +25,7 @@ struct xdpw_frame_scp_shm {
 	void *data;
 };
 
-
+enum spa_video_format xdpw_format_pw_from_wl_shm(
+	struct xdpw_frame_scp_shm *frame);
 
 #endif /* !SCREENCAST_SCP_H */
