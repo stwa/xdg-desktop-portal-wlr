@@ -98,6 +98,8 @@ struct xdpw_wlr_output {
 };
 
 void randname(char *buf);
+enum spa_video_format xdpw_format_pw(
+	struct xdpw_screencast_instance *cast);
 enum spa_video_format xdpw_format_pw_strip_alpha(enum spa_video_format format);
 
 #endif /* SCREENCAST_COMMON_H */
