@@ -395,11 +395,22 @@ static int method_screencast_start(sd_bus_message *msg, void *data,
 		return ret;
 	}
 
+	// TODO: create seperate function
+	uint32_t width, height;
+	switch (cast->type) {
+		case XDPW_INSTANCE_SCP_SHM:
+			width = cast->simple_frame.scp_shm.width;
+			height = cast->simple_frame.scp_shm.height;
+			break;
+		default:
+			abort();
+	}
+
 	ret = sd_bus_message_append(reply, "ua{sv}", PORTAL_RESPONSE_SUCCESS, 1,
 		"streams", "a(ua{sv})", 1,
 		cast->node_id, 2,
 		"position", "(ii)", 0, 0,
-		"size", "(ii)", cast->simple_frame.width, cast->simple_frame.height);
+		"size", "(ii)", width, height);
 
 	if (ret < 0) {
 		return ret;
