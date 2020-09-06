@@ -1,4 +1,5 @@
 #include "pipewire_screencast.h"
+#include "pipewire_screencast_scp_shm.h"
 
 #include <pipewire/pipewire.h>
 #include <spa/utils/result.h>
@@ -9,22 +10,6 @@
 #include "wlr_screencast.h"
 #include "xdpw.h"
 #include "logger.h"
-
-static void writeFrameData(void *pwFramePointer, void *wlrFramePointer,
-		uint32_t height, uint32_t stride, bool inverted) {
-	if (!inverted) {
-		memcpy(pwFramePointer, wlrFramePointer, height * stride);
-		return;
-	}
-
-	for (size_t i = 0; i < (size_t)height; ++i) {
-		void *flippedWlrRowPointer = wlrFramePointer + ((height - i - 1) * stride);
-		void *pwRowPointer = pwFramePointer + (i * stride);
-		memcpy(pwRowPointer, flippedWlrRowPointer, stride);
-	}
-
-	return;
-}
 
 static void pwr_on_event(void *data, uint64_t expirations) {
 	struct xdpw_screencast_instance *cast = data;
@@ -54,24 +39,13 @@ static void pwr_on_event(void *data, uint64_t expirations) {
 		h->dts_offset = 0;
 	}
 
-	d[0].type = SPA_DATA_MemPtr;
-	d[0].maxsize = cast->simple_frame.size;
-	d[0].mapoffset = 0;
-	d[0].chunk->size = cast->simple_frame.size;
-	d[0].chunk->stride = cast->simple_frame.stride;
-	d[0].chunk->offset = 0;
-	d[0].flags = 0;
-	d[0].fd = -1;
-
-	writeFrameData(d[0].data, cast->simple_frame.data, cast->simple_frame.height,
-		cast->simple_frame.stride, cast->simple_frame.y_invert);
-
-	logprint(TRACE, "pipewire: pointer %p", d[0].data);
-	logprint(TRACE, "pipewire: size %d", d[0].maxsize);
-	logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
-	logprint(TRACE, "pipewire: width %d", cast->simple_frame.width);
-	logprint(TRACE, "pipewire: height %d", cast->simple_frame.height);
-	logprint(TRACE, "pipewire: y_invert %d", cast->simple_frame.y_invert);
+	switch (cast->type) {
+		case XDPW_INSTANCE_SCP_SHM:
+			pwr_copydata_scp_shm(cast, d);
+			break;
+		default:
+			abort();
+	}
 	logprint(TRACE, "********************");
 
 	pw_stream_queue_buffer(cast->stream, pw_buf);
@@ -113,18 +87,14 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 
 	spa_format_video_raw_parse(param, &cast->pwr_format);
 
-	params[0] = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(BUFFERS, 1, 32),
-		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(cast->simple_frame.size),
-		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(cast->simple_frame.stride),
-		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(ALIGN));
-
-	params[1] = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
-		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
-		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
+	switch (cast->type) {
+		case XDPW_INSTANCE_SCP_SHM:
+			pwr_param_buffer_scp_shm(params[0], &b, cast);
+			pwr_param_meta_scp_shm(params[1], &b, cast);
+			break;
+		default:
+			abort();
+	}
 
 	pw_stream_update_params(stream, params, 2);
 }
@@ -162,30 +132,14 @@ void xdpw_pwr_stream_init(struct xdpw_screencast_instance *cast) {
 		pw_loop_add_event(state->pw_loop, pwr_on_event, cast);
 	logprint(DEBUG, "pipewire: registered event %p", cast->event);
 
-	enum spa_video_format format = xdpw_format_pw_from_wl_shm(cast);
-	enum spa_video_format format_without_alpha =
-		xdpw_format_pw_strip_alpha(format);
-	uint32_t n_formats = 1;
-	if (format_without_alpha != SPA_VIDEO_FORMAT_UNKNOWN) {
-		n_formats++;
+	const struct spa_pod *param;
+	switch (cast->type) {
+		case XDPW_INSTANCE_SCP_SHM:
+			pwr_param_format_scp_shm(param, &b, cast);
+			break;
+		default:
+			abort();
 	}
-
-	const struct spa_pod *param = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
-		SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_video),
-		SPA_FORMAT_mediaSubtype,    SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw),
-		SPA_FORMAT_VIDEO_format,    SPA_POD_CHOICE_ENUM_Id(n_formats + 1,
-			format, format, format_without_alpha),
-		SPA_FORMAT_VIDEO_size,      SPA_POD_CHOICE_RANGE_Rectangle(
-			&SPA_RECTANGLE(cast->simple_frame.width, cast->simple_frame.height),
-			&SPA_RECTANGLE(1, 1),
-			&SPA_RECTANGLE(4096, 4096)),
-		// variable framerate
-		SPA_FORMAT_VIDEO_framerate, SPA_POD_Fraction(&SPA_FRACTION(0, 1)),
-		SPA_FORMAT_VIDEO_maxFramerate, SPA_POD_CHOICE_RANGE_Fraction(
-			&SPA_FRACTION(cast->framerate, 1),
-			&SPA_FRACTION(1, 1),
-			&SPA_FRACTION(cast->framerate, 1)));
 
 	pw_stream_add_listener(cast->stream, &cast->stream_listener,
 		&pwr_stream_events, cast);

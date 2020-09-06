@@ -51,6 +51,7 @@ executable(
 		'src/screencast/wlr_screencast.c',
 		'src/screencast/wlr_screencast_scp_shm.c',
 		'src/screencast/pipewire_screencast.c',
+		'src/screencast/pipewire_screencast_scp_shm.c',
 	]),
 	dependencies: [
 		wayland_client,
