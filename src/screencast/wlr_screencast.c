@@ -24,6 +24,7 @@ void xdpw_wlr_frame_free(struct xdpw_screencast_instance *cast) {
 	switch (cast->type) {
 		case XDPW_INSTANCE_SCP_SHM:
 			xdpw_wlr_frame_free_scp_shm(cast);
+			break;
 		default:
 			abort();
 	}
@@ -44,6 +45,7 @@ void xdpw_wlr_register_cb(struct xdpw_screencast_instance *cast) {
 	switch (cast->type) {
 		case XDPW_INSTANCE_SCP_SHM:
 			xdpw_wlr_register_cb_scp_shm(cast);
+			break;
 		default:
 			abort();
 	}
