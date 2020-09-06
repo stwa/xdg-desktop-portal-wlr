@@ -30,6 +30,16 @@ static void wlr_frame_buffer_destroy(struct xdpw_screencast_instance *cast) {
 	}
 }
 
+void xdpw_wlr_frame_free_scp_shm(struct xdpw_screencast_instance *cast) {
+	zwlr_screencopy_frame_v1_destroy(cast->wlr_frame);
+	cast->wlr_frame = NULL;
+	if (cast->quit || cast->err) {
+		wlr_frame_buffer_destroy(cast);
+		logprint(TRACE, "xdpw: simple_frame buffer destroyed");
+	}
+	logprint(TRACE, "wlroots: frame destroyed");
+}
+
 static int anonymous_shm_open(void) {
 	char name[] = "/xdpw-shm-XXXXXX";
 	int retries = 100;
@@ -181,3 +191,11 @@ static const struct zwlr_screencopy_frame_v1_listener wlr_frame_listener = {
 	.failed = wlr_frame_failed,
 	.damage = wlr_frame_damage,
 };
+
+void xdpw_wlr_register_cb_scp_shm(struct xdpw_screencast_instance *cast) {
+	cast->frame_callback = zwlr_screencopy_manager_v1_capture_output(
+		cast->ctx->screencopy_manager, cast->with_cursor, cast->target_output->output);
+
+	zwlr_screencopy_frame_v1_add_listener(cast->frame_callback,
+		&wlr_frame_listener, cast);
+}

@@ -1,4 +1,5 @@
 #include "wlr_screencast.h"
+#include "wlr_screencast_scp_shm.h"
 
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
@@ -20,13 +21,12 @@
 #include "logger.h"
 
 void xdpw_wlr_frame_free(struct xdpw_screencast_instance *cast) {
-	zwlr_screencopy_frame_v1_destroy(cast->wlr_frame);
-	cast->wlr_frame = NULL;
-	if (cast->quit || cast->err) {
-		wlr_frame_buffer_destroy(cast);
-		logprint(TRACE, "xdpw: simple_frame buffer destroyed");
+	switch (cast->type) {
+		case XDPW_INSTANCE_SCP_SHM:
+			xdpw_wlr_frame_free_scp_shm(cast);
+		default:
+			abort();
 	}
-	logprint(TRACE, "wlroots: frame destroyed");
 
 	if (cast->quit || cast->err) {
 		// TODO: revisit the exit condition (remove quit?)
@@ -40,11 +40,13 @@ void xdpw_wlr_frame_free(struct xdpw_screencast_instance *cast) {
 }
 
 void xdpw_wlr_register_cb(struct xdpw_screencast_instance *cast) {
-	cast->frame_callback = zwlr_screencopy_manager_v1_capture_output(
-		cast->ctx->screencopy_manager, cast->with_cursor, cast->target_output->output);
 
-	zwlr_screencopy_frame_v1_add_listener(cast->frame_callback,
-		&wlr_frame_listener, cast);
+	switch (cast->type) {
+		case XDPW_INSTANCE_SCP_SHM:
+			xdpw_wlr_register_cb_scp_shm(cast);
+		default:
+			abort();
+	}
 	logprint(TRACE, "wlroots: callbacks registered");
 }
 
