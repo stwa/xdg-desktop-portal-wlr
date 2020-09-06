@@ -47,7 +47,9 @@ executable(
 		'src/screenshot/screenshot.c',
 		'src/screencast/screencast.c',
 		'src/screencast/screencast_common.c',
+		'src/screencast/screencast_scp_shm.c',
 		'src/screencast/wlr_screencast.c',
+		'src/screencast/wlr_screencast_scp_shm.c',
 		'src/screencast/pipewire_screencast.c',
 	]),
 	dependencies: [
