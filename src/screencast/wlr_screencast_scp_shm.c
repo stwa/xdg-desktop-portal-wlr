@@ -1,7 +1,6 @@
 #include "wlr_screencast.h"
 
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
-#include "wlr-export-dmabuf-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
 #include <fcntl.h>
 #include <limits.h>
