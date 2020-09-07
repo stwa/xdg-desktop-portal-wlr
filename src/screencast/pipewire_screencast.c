@@ -89,8 +89,8 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 
 	switch (cast->type) {
 		case XDPW_INSTANCE_SCP_SHM:
-			pwr_param_buffer_scp_shm(params[0], &b, cast);
-			pwr_param_meta_scp_shm(params[1], &b, cast);
+			params[0] = pwr_param_buffer_scp_shm(&b, cast);
+			params[1] = pwr_param_meta_scp_shm(&b, cast);
 			break;
 		default:
 			abort();
@@ -135,7 +135,7 @@ void xdpw_pwr_stream_init(struct xdpw_screencast_instance *cast) {
 	const struct spa_pod *param;
 	switch (cast->type) {
 		case XDPW_INSTANCE_SCP_SHM:
-			pwr_param_format_scp_shm(param, &b, cast);
+			param = pwr_param_format_scp_shm(&b, cast);
 			break;
 		default:
 			abort();
