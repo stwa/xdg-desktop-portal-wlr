@@ -6,6 +6,7 @@
 #include <wayland-client-protocol.h>
 
 #include "screencast_scp_shm.h"
+#include "screencast_scp_dmabuf.h"
 
 // this seems to be right based on
 // https://github.com/flatpak/xdg-desktop-portal/blob/309a1fc0cf2fb32cceb91dbc666d20cf0a3202c2/src/screen-cast.c#L955
@@ -25,10 +26,12 @@ enum source_types {
 enum xdpw_instance_type {
   XDPW_INSTANCE_NONE = 0,
   XDPW_INSTANCE_SCP_SHM,
+  XDPW_INSTANCE_SCP_DMABUF,
 };
 
 union xdpw_frame {
 	struct xdpw_frame_scp_shm scp_shm;
+	struct xdpw_frame_scp_dmabuf scp_dmabuf;
 };
 
 struct xdpw_screencast_context {

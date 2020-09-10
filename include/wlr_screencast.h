@@ -3,7 +3,11 @@
 
 #include "screencast_common.h"
 
+#ifdef SCREENCOPYV2
 #define SC_MANAGER_VERSION 2
+#else
+#define SC_MANAGER_VERSION 3
+#endif
 
 struct xdpw_state;
 
