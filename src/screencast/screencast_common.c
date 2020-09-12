@@ -13,8 +13,8 @@ void randname(char *buf) {
 }
 
 enum spa_video_format xdpw_format_pw_from_wl_shm(
-		struct xdpw_screencast_instance *cast) {
-	switch (cast->xdpw_frames.screencopy_frame.format) {
+		enum wl_shm_format format) {
+	switch (format) {
 	case WL_SHM_FORMAT_ARGB8888:
 		return SPA_VIDEO_FORMAT_BGRA;
 	case WL_SHM_FORMAT_XRGB8888:
@@ -36,6 +36,11 @@ enum spa_video_format xdpw_format_pw_from_wl_shm(
 	default:
 		abort();
 	}
+}
+
+enum spa_video_format xdpw_format_pw(
+		struct xdpw_screencast_instance *cast) {
+	return xdpw_format_pw_from_wl_shm(cast->xdpw_frames.screencopy_frame.format);
 }
 
 enum spa_video_format xdpw_format_pw_strip_alpha(enum spa_video_format format) {
