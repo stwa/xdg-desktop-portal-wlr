@@ -63,6 +63,18 @@ void pwr_copy_screencast(struct spa_buffer *spa_buf, struct xdpw_screencast_inst
 		logprint(TRACE, "pipewire: height %d", cast->xdpw_frames.screencopy_frame.height);
 		logprint(TRACE, "pipewire: y_invert %d", cast->xdpw_frames.screencopy_frame.y_invert);
 		break;
+	case XDPW_INSTANCE_SCP_DMABUF:
+		d[0].type = SPA_DATA_DmaBuf;
+		d[0].maxsize = cast->xdpw_frames.screencopy_frame.size;
+		d[0].mapoffset = cast->xdpw_frames.screencopy_frame.offset;
+		d[0].flags = 0;
+		d[0].fd = cast->xdpw_frames.screencopy_frame.fd;
+
+		logprint(TRACE, "pipewire: fd %p", d[0].fd);
+		logprint(TRACE, "pipewire: size %d", d[0].maxsize);
+		logprint(TRACE, "pipewire: width %d", cast->xdpw_frames.screencopy_frame.width);
+		logprint(TRACE, "pipewire: height %d", cast->xdpw_frames.screencopy_frame.height);
+		break;
 	default:
 		abort();
 	}
@@ -84,6 +96,7 @@ static void pwr_on_event(void *data, uint64_t expirations) {
 
 	switch (cast->type) {
 	case XDPW_INSTANCE_SCP_SHM:
+	case XDPW_INSTANCE_SCP_DMABUF:
 		pwr_copy_screencast(pw_buf->buffer, cast);
 		break;
 	default:
