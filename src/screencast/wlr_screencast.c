@@ -218,6 +218,8 @@ int xdpw_wlr_screencast_init(struct xdpw_state *state) {
 	ctx->gbm = create_gbm_device();
 	if (!ctx->gbm) {
 		logprint(ERROR, "System doesn't support %s!", "gbm");
+	} else {
+		logprint(DEBUG, "System does support %s!", "gbm");
 	}
 
 	if (xdpw_wlr_screencopy_init(state) != 0) {
