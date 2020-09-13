@@ -19,6 +19,10 @@
 #include "xdpw.h"
 #include "logger.h"
 
+#include<gdbm.h>
+#include<xf86drm.h>
+#include <bsd/string.h>
+
 static int anonymous_shm_open(void) {
 	char name[] = "/xdpw-shm-XXXXXX";
 	int retries = 100;
@@ -74,4 +78,48 @@ struct wl_buffer *wlr_create_shm_buffer(struct xdpw_screencast_instance *cast,
 
 	*data_out = data;
 	return buffer;
+}
+
+static int gbm_find_render_node(char *node, size_t maxlen) {
+	bool r = -1;
+	drmDevice *devices[64];
+
+	int n = drmGetDevices2(0, devices, sizeof(devices) / sizeof(devices[0]));
+	for (int i = 0; i < n; ++i) {
+		drmDevice *dev = devices[i];
+		if (!(dev->available_nodes & (1 << DRM_NODE_RENDER)))
+			continue;
+
+		strlcpy(node, dev->nodes[DRM_NODE_RENDER], maxlen);
+		r = 0;
+		break;
+	}
+
+	drmFreeDevices(devices, n);
+	return r;
+}
+
+struct gbm_device *create_gbm_device(){
+	struct gbm_device *gbm;
+	char render_node[256];
+
+	if (gbm_find_render_node(render_node, sizeof(render_node)) < 0) {
+		logprint(ERROR, "xdpw: Could not find render node");
+		return NULL;
+	}
+
+	int fd = open(render_node, O_RDWR);
+	if (fd < 0) {
+		logprint(ERROR, "xdpw: Could not open render node %s",render_node);
+		close(fd);
+		return NULL;
+	}
+
+	gbm = gbm_create_device(fd);
+	close(fd);
+	return gbm;
+}
+
+void destroy_gbm_device(struct gbm_device *gbm) {
+	gbm_device_destroy(gbm);
 }

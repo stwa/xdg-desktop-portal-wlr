@@ -26,6 +26,8 @@ rt = cc.find_library('rt')
 pipewire = dependency('libpipewire-0.3', version: '>= 0.2.9')
 wayland_client = dependency('wayland-client')
 wayland_protos = dependency('wayland-protocols', version: '>=1.14')
+gbm = dependency('gbm')
+drm = dependency('libdrm')
 
 logind = dependency('libsystemd', required: false)
 if logind.found()
@@ -51,6 +53,7 @@ executable(
 		'src/screencast/wlr_screencast_common.c',
 		'src/screencast/wlr_screencopy.c',
 		'src/screencast/pipewire_screencast.c',
+		'src/tmp/strlcpy.c',
 	]),
 	dependencies: [
 		wayland_client,
@@ -58,6 +61,8 @@ executable(
 		logind,
 		pipewire,
 		rt,
+		gbm,
+		drm,
 	],
 	include_directories: [inc],
 	install: true,
