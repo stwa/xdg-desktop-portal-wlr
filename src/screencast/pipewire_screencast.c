@@ -42,24 +42,30 @@ void pwr_copy_screencast(struct spa_buffer *spa_buf, struct xdpw_screencast_inst
 		h->dts_offset = 0;
 	}
 
-	d[0].type = SPA_DATA_MemPtr;
-	d[0].maxsize = cast->xdpw_frames.screencopy_frame.size;
-	d[0].mapoffset = 0;
-	d[0].chunk->size = cast->xdpw_frames.screencopy_frame.size;
-	d[0].chunk->stride = cast->xdpw_frames.screencopy_frame.stride;
-	d[0].chunk->offset = 0;
-	d[0].flags = 0;
-	d[0].fd = -1;
+	switch (cast->type) {
+	case XDPW_INSTANCE_SCP_SHM:
+		d[0].type = SPA_DATA_MemPtr;
+		d[0].maxsize = cast->xdpw_frames.screencopy_frame.size;
+		d[0].mapoffset = 0;
+		d[0].chunk->size = cast->xdpw_frames.screencopy_frame.size;
+		d[0].chunk->stride = cast->xdpw_frames.screencopy_frame.stride;
+		d[0].chunk->offset = 0;
+		d[0].flags = 0;
+		d[0].fd = -1;
 
-	writeFrameData(d[0].data, cast->xdpw_frames.screencopy_frame.data, cast->xdpw_frames.screencopy_frame.height,
-		cast->xdpw_frames.screencopy_frame.stride, cast->xdpw_frames.screencopy_frame.y_invert);
+		writeFrameData(d[0].data, cast->xdpw_frames.screencopy_frame.data, cast->xdpw_frames.screencopy_frame.height,
+			cast->xdpw_frames.screencopy_frame.stride, cast->xdpw_frames.screencopy_frame.y_invert);
 
-	logprint(TRACE, "pipewire: pointer %p", d[0].data);
-	logprint(TRACE, "pipewire: size %d", d[0].maxsize);
-	logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
-	logprint(TRACE, "pipewire: width %d", cast->xdpw_frames.screencopy_frame.width);
-	logprint(TRACE, "pipewire: height %d", cast->xdpw_frames.screencopy_frame.height);
-	logprint(TRACE, "pipewire: y_invert %d", cast->xdpw_frames.screencopy_frame.y_invert);
+		logprint(TRACE, "pipewire: pointer %p", d[0].data);
+		logprint(TRACE, "pipewire: size %d", d[0].maxsize);
+		logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
+		logprint(TRACE, "pipewire: width %d", cast->xdpw_frames.screencopy_frame.width);
+		logprint(TRACE, "pipewire: height %d", cast->xdpw_frames.screencopy_frame.height);
+		logprint(TRACE, "pipewire: y_invert %d", cast->xdpw_frames.screencopy_frame.y_invert);
+		break;
+	default:
+		abort();
+	}
 	logprint(TRACE, "********************");
 
 }
@@ -76,7 +82,13 @@ static void pwr_on_event(void *data, uint64_t expirations) {
 		return;
 	}
 
-	pwr_copy_screencast(pw_buf->buffer, cast);
+	switch (cast->type) {
+	case XDPW_INSTANCE_SCP_SHM:
+		pwr_copy_screencast(pw_buf->buffer, cast);
+		break;
+	default:
+		abort();
+	}
 
 	pw_stream_queue_buffer(cast->stream, pw_buf);
 
@@ -117,14 +129,20 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 
 	spa_format_video_raw_parse(param, &cast->pwr_format);
 
-	params[0] = spa_pod_builder_add_object(&b,
-		SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
-		SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(BUFFERS, 1, 32),
-		SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
-		SPA_PARAM_BUFFERS_size,    SPA_POD_Int(cast->xdpw_frames.simple_frame.size),
-		SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(cast->xdpw_frames.simple_frame.stride),
-		SPA_PARAM_BUFFERS_align,   SPA_POD_Int(ALIGN),
-		SPA_PARAM_BUFFERS_dataType, SPA_POD_Int((1<<SPA_DATA_MemPtr)));
+	switch (cast->type) {
+	case XDPW_INSTANCE_SCP_SHM:
+		params[0] = spa_pod_builder_add_object(&b,
+			SPA_TYPE_OBJECT_ParamBuffers, SPA_PARAM_Buffers,
+			SPA_PARAM_BUFFERS_buffers, SPA_POD_CHOICE_RANGE_Int(BUFFERS, 1, 32),
+			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
+			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(cast->xdpw_frames.simple_frame.size),
+			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(cast->xdpw_frames.simple_frame.stride),
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(ALIGN),
+			SPA_PARAM_BUFFERS_dataType, SPA_POD_Int((1<<SPA_DATA_MemPtr)));
+		break;
+	default:
+		abort();
+	}
 
 	params[1] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
