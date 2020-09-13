@@ -19,6 +19,21 @@
 #include "xdpw.h"
 #include "logger.h"
 
+void wlr_destroy_shm_buffer(struct wl_buffer *buffer, void *data, int size) {
+	// Even though this check may be deemed unnecessary,
+	// this has been found to cause SEGFAULTs, like this one:
+	// https://github.com/emersion/xdg-desktop-portal-wlr/issues/50
+	if (data != NULL) {
+		munmap(data, size);
+		data = NULL;
+	}
+
+	if (buffer != NULL) {
+		wl_buffer_destroy(buffer);
+		buffer = NULL;
+	}
+}
+
 static int anonymous_shm_open(void) {
 	char name[] = "/xdpw-shm-XXXXXX";
 	int retries = 100;
