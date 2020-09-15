@@ -113,6 +113,8 @@ static void pwr_handle_stream_state_changed(void *data,
 	struct xdpw_screencast_instance *cast = data;
 	cast->node_id = pw_stream_get_node_id(cast->stream);
 
+	logprint(TRACE, "pipewire: state changed event handle");
+
 	logprint(INFO, "pipewire: stream state changed to \"%s\"",
 		pw_stream_state_as_string(state));
 	logprint(INFO, "pipewire: node id is %d", cast->node_id);
@@ -135,6 +137,8 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 	struct spa_pod_builder b =
 		SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[2];
+
+	logprint(TRACE, "pipewire: param changed event handle");
 
 	if (!param || id != SPA_PARAM_Format) {
 		return;
