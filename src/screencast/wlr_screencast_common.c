@@ -99,7 +99,7 @@ struct wl_buffer *wlr_create_dmabuf_buffer(struct xdpw_screencast_instance *cast
 		int width, int height, uint32_t fourcc, struct gbm_bo **bo_out) {
 	struct gbm_bo *bo;
 	bo = gbm_bo_create(cast->ctx->gbm, width, height, fourcc,
-		GBM_BO_USE_RENDERING);
+		GBM_BO_USE_LINEAR | GBM_BO_USE_RENDERING);
 	if (bo == NULL) {
 		logprint(ERROR, "wlroots: failed to create gbm_bo");
 		return NULL;
