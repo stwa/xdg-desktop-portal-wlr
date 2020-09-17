@@ -11,6 +11,7 @@ endif
 client_protocols = [
 	'linux-dmabuf-unstable-v1.xml',
 	'wlr-screencopy-unstable-v1.xml',
+	'wlr-export-dmabuf-unstable-v1.xml',
 	'xdg-output-unstable-v1.xml',
 ]
 
