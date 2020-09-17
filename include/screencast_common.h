@@ -27,6 +27,7 @@ enum xdpw_instance_type {
 	XDPW_INSTANCE_NONE=0,
 	XDPW_INSTANCE_SCP_SHM,
 	XDPW_INSTANCE_SCP_DMABUF,
+	XDPW_INSTANCE_SCP_DMABUF2MemPtr,
 };
 
 struct xdpw_simple_frame {

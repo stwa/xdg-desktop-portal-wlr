@@ -69,6 +69,7 @@ enum spa_video_format xdpw_format_pw(
 	case XDPW_INSTANCE_SCP_SHM:
 		return xdpw_format_pw_from_wl_shm(cast->xdpw_frames.screencopy_frame.format);
 	case XDPW_INSTANCE_SCP_DMABUF:
+	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
 		return xdpw_format_pw_from_dmabuf(cast->xdpw_frames.screencopy_frame.fourcc);
 	default:
 		abort();
