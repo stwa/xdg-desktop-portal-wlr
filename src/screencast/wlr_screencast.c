@@ -27,6 +27,7 @@ void xdpw_wlr_frame_free(struct xdpw_screencast_instance *cast) {
 	switch (cast->type) {
 	case XDPW_INSTANCE_SCP_SHM:
 	case XDPW_INSTANCE_SCP_DMABUF:
+	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
 		xdpw_wlr_screencopy_frame_free(cast);
 		break;
 	default:
@@ -49,6 +50,7 @@ void xdpw_wlr_register_cb(struct xdpw_screencast_instance *cast) {
 	switch (cast->type) {
 	case XDPW_INSTANCE_SCP_SHM:
 	case XDPW_INSTANCE_SCP_DMABUF:
+	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
 		xdpw_wlr_screencopy_register_cb(cast);
 		break;
 	default:

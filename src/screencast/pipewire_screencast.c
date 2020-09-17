@@ -26,6 +26,16 @@ static void writeFrameData(void *pwFramePointer, void *wlrFramePointer,
 	return;
 }
 
+static void writeDmabufData(void *data, struct xdpw_screencast_instance *cast) {
+	void *map_data = NULL;
+	cast->xdpw_frames.screencopy_frame.data = gbm_bo_map(cast->xdpw_frames.screencopy_frame.bo,
+			0, 0, cast->xdpw_frames.screencopy_frame.width, cast->xdpw_frames.screencopy_frame.height,
+			GBM_BO_TRANSFER_READ, &cast->xdpw_frames.screencopy_frame.stride, &map_data);
+	writeFrameData(data, cast->xdpw_frames.screencopy_frame.data, cast->xdpw_frames.screencopy_frame.height,
+		cast->xdpw_frames.screencopy_frame.stride, cast->xdpw_frames.screencopy_frame.y_invert);
+	gbm_bo_unmap(cast->xdpw_frames.screencopy_frame.bo, map_data);
+}
+
 void pwr_copy_screencast(struct spa_buffer *spa_buf, struct xdpw_screencast_instance *cast) {
 	struct spa_meta_header *h;
 	struct spa_data *d;
@@ -75,6 +85,25 @@ void pwr_copy_screencast(struct spa_buffer *spa_buf, struct xdpw_screencast_inst
 		logprint(TRACE, "pipewire: width %d", cast->xdpw_frames.screencopy_frame.width);
 		logprint(TRACE, "pipewire: height %d", cast->xdpw_frames.screencopy_frame.height);
 		break;
+	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
+		d[0].type = SPA_DATA_MemPtr;
+		d[0].maxsize = cast->xdpw_frames.screencopy_frame.size;
+		d[0].mapoffset = 0;
+		d[0].chunk->size = cast->xdpw_frames.screencopy_frame.size;
+		d[0].chunk->stride = cast->xdpw_frames.screencopy_frame.stride;
+		d[0].chunk->offset = 0;
+		d[0].flags = 0;
+		d[0].fd = -1;
+
+		writeDmabufData(d[0].data, cast);
+
+		logprint(TRACE, "pipewire: pointer %p", d[0].data);
+		logprint(TRACE, "pipewire: size %d", d[0].maxsize);
+		logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
+		logprint(TRACE, "pipewire: width %d", cast->xdpw_frames.screencopy_frame.width);
+		logprint(TRACE, "pipewire: height %d", cast->xdpw_frames.screencopy_frame.height);
+		logprint(TRACE, "pipewire: y_invert %d", cast->xdpw_frames.screencopy_frame.y_invert);
+		break;
 	default:
 		abort();
 	}
@@ -97,6 +126,7 @@ static void pwr_on_event(void *data, uint64_t expirations) {
 	switch (cast->type) {
 	case XDPW_INSTANCE_SCP_SHM:
 	case XDPW_INSTANCE_SCP_DMABUF:
+	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
 		pwr_copy_screencast(pw_buf->buffer, cast);
 		break;
 	default:
@@ -208,6 +238,7 @@ void xdpw_pwr_stream_init(struct xdpw_screencast_instance *cast) {
 	const struct spa_pod *param;
 	switch (cast->type) {
 	case XDPW_INSTANCE_SCP_SHM:
+	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
 		param = spa_pod_builder_add_object(&b,
 			SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat,
 			SPA_FORMAT_mediaType,       SPA_POD_Id(SPA_MEDIA_TYPE_video),

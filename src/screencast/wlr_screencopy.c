@@ -29,6 +29,7 @@ static void wlr_screencopy_buffer_free(struct xdpw_screencast_instance *cast) {
 			cast->xdpw_frames.screencopy_frame.size);
 		break;
 	case XDPW_INSTANCE_SCP_DMABUF:
+	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
 		wlr_destroy_dmabuf_buffer(cast->xdpw_frames.screencopy_frame.buffer,
 			cast->xdpw_frames.screencopy_frame.bo);
 		break;
@@ -59,6 +60,7 @@ static void wlr_frame_buffer_chparam(struct xdpw_screencast_instance *cast,
 		cast->xdpw_frames.screencopy_frame.format = format;
 		break;
 	case XDPW_INSTANCE_SCP_DMABUF:
+	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
 		cast->xdpw_frames.screencopy_frame.fourcc = format;
 		break;
 	default:
@@ -77,6 +79,7 @@ static void wlr_frame_linux_dmabuf(void *data,
 	case XDPW_INSTANCE_SCP_SHM:
 		break;
 	case XDPW_INSTANCE_SCP_DMABUF:
+	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
 		cast->wlr_frame = frame;
 		if (cast->xdpw_frames.screencopy_frame.width != width ||
 				cast->xdpw_frames.screencopy_frame.height != height ||
@@ -150,6 +153,7 @@ static void wlr_frame_buffer(void *data, struct zwlr_screencopy_frame_v1 *frame,
 		}
 		break;
 	case XDPW_INSTANCE_SCP_DMABUF:
+	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
 		break;
 	default:
 		abort();
