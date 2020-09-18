@@ -70,6 +70,7 @@ struct xdpw_screencopy_frame {
 	struct gbm_bo *bo;
 	uint32_t offset;
 	int fd;
+	struct linux_dmabuf_modifier dmabuf_modifier;
 
 };
 

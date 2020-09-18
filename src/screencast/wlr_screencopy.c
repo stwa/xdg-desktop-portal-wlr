@@ -62,6 +62,9 @@ static void wlr_frame_buffer_chparam(struct xdpw_screencast_instance *cast,
 	case XDPW_INSTANCE_SCP_DMABUF:
 	case XDPW_INSTANCE_SCP_DMABUF2MemPtr:
 		cast->xdpw_frames.screencopy_frame.fourcc = format;
+		cast->xdpw_frames.screencopy_frame.dmabuf_modifier.format = format;
+		cast->xdpw_frames.screencopy_frame.dmabuf_modifier.modifier_hi = 0;
+		cast->xdpw_frames.screencopy_frame.dmabuf_modifier.modifier_lo = 0;
 		break;
 	default:
 		abort();
@@ -96,6 +99,7 @@ static void wlr_frame_linux_dmabuf(void *data,
 			cast->xdpw_frames.screencopy_frame.size = cast->xdpw_frames.screencopy_frame.stride * height;
 			cast->xdpw_frames.screencopy_frame.offset = gbm_bo_get_offset(cast->xdpw_frames.screencopy_frame.bo, 0);
 			cast->xdpw_frames.screencopy_frame.fd = gbm_bo_get_fd(cast->xdpw_frames.screencopy_frame.bo);
+			wlr_linux_dmabuf_register_cb(cast, &cast->xdpw_frames.screencopy_frame.dmabuf_modifier);
 		} else {
 			logprint(TRACE,"wlroots: dmabuf buffer exists");
 		}
