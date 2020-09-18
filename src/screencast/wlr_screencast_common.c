@@ -198,3 +198,25 @@ struct gbm_device *create_gbm_device(){
 void destroy_gbm_device(struct gbm_device *gbm) {
 	gbm_device_destroy(gbm);
 }
+
+static void linux_dmabuf_handle_modifier(void* data,
+		struct zwp_linux_dmabuf_v1 *zwp_linux_dmabuf_v1,
+		uint32_t format, uint32_t modifier_hi, uint32_t modifier_lo) {
+	struct linux_dmabuf_modifier *modifier = data;
+
+	logprint(TRACE, "wlroots: linux dmabuf modifier handle called");
+
+	if (format == modifier->format) {
+		modifier->modifier_hi = modifier_hi;
+		modifier->modifier_lo = modifier_lo;
+	}
+}
+
+struct zwp_linux_dmabuf_v1_listener linux_dmabuf_listener = {
+	.modifier = linux_dmabuf_handle_modifier,
+};
+
+void wlr_linux_dmabuf_register_cb(struct xdpw_screencast_instance *cast, struct linux_dmabuf_modifier *modifier) {
+	zwp_linux_dmabuf_v1_add_listener(cast->ctx->linux_dmabuf, &linux_dmabuf_listener, modifier);
+	logprint(TRACE, "wlroots: linux dmabuf callback registered");
+}

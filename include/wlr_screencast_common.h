@@ -17,4 +17,7 @@ void wlr_destroy_dmabuf_buffer(struct wl_buffer *buffer, struct gbm_bo *bo);
 struct gbm_device *create_gbm_device();
 void destroy_gbm_device(struct gbm_device *gbm);
 
+void wlr_linux_dmabuf_register_cb(struct xdpw_screencast_instance *cast,
+		struct linux_dmabuf_modifier *modifier);
+
 #endif /* !WLR_SCREENCAST_COMMON_H */

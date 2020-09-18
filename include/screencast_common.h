@@ -23,6 +23,12 @@ enum source_types {
   WINDOW = 2,
 };
 
+struct linux_dmabuf_modifier {
+	uint32_t format;
+	uint32_t modifier_hi;
+	uint32_t modifier_lo;
+};
+
 enum xdpw_instance_type {
 	XDPW_INSTANCE_NONE=0,
 	XDPW_INSTANCE_SCP_SHM,
