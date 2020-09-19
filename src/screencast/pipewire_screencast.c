@@ -5,6 +5,7 @@
 #include <spa/param/props.h>
 #include <spa/param/format-utils.h>
 #include <spa/param/video/format-utils.h>
+#include <sys/mman.h>
 
 #include "wlr_screencast.h"
 #include "xdpw.h"
@@ -34,6 +35,17 @@ static void writeDmabufData(void *data, struct xdpw_screencast_instance *cast) {
 	writeFrameData(data, cast->xdpw_frames.screencopy_frame.data, cast->xdpw_frames.screencopy_frame.height,
 		cast->xdpw_frames.screencopy_frame.stride, cast->xdpw_frames.screencopy_frame.y_invert);
 	gbm_bo_unmap(cast->xdpw_frames.screencopy_frame.bo, map_data);
+}
+
+static void writeDmabufDatammap(void *data, struct xdpw_screencast_instance *cast) {
+	cast->xdpw_frames.screencopy_frame.data = mmap(NULL,
+		cast->xdpw_frames.screencopy_frame.size + cast->xdpw_frames.screencopy_frame.offset,
+		PROT_READ, MAP_SHARED, cast->xdpw_frames.screencopy_frame.fd,
+		cast->xdpw_frames.screencopy_frame.offset);
+	writeFrameData(data, cast->xdpw_frames.screencopy_frame.data, cast->xdpw_frames.screencopy_frame.height,
+		cast->xdpw_frames.screencopy_frame.stride, cast->xdpw_frames.screencopy_frame.y_invert);
+	munmap(cast->xdpw_frames.screencopy_frame.data,
+		cast->xdpw_frames.screencopy_frame.size + cast->xdpw_frames.screencopy_frame.offset);
 }
 
 void pwr_copy_screencast(struct spa_buffer *spa_buf, struct xdpw_screencast_instance *cast) {
@@ -95,7 +107,13 @@ void pwr_copy_screencast(struct spa_buffer *spa_buf, struct xdpw_screencast_inst
 		d[0].flags = 0;
 		d[0].fd = -1;
 
-		writeDmabufData(d[0].data, cast);
+		if (cast->xdpw_frames.screencopy_frame.modifier == 0) {
+			logprint(DEBUG, "Using mmap screencopy");
+			writeDmabufDatammap(d[0].data, cast);
+		} else {
+			logprint(DEBUG, "Using gbm_bo_map screencopy");
+			writeDmabufData(d[0].data, cast);
+		}
 
 		logprint(TRACE, "pipewire: pointer %p", d[0].data);
 		logprint(TRACE, "pipewire: size %d", d[0].maxsize);
