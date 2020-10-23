@@ -89,3 +89,15 @@ enum spa_video_format xdpw_format_pw_strip_alpha(enum spa_video_format format) {
 		return SPA_VIDEO_FORMAT_UNKNOWN;
 	}
 }
+
+enum spa_data_type xdpw_datatype_pw(
+		enum xdpw_instance_type type) {
+	switch (type) {
+	case XDPW_INSTANCE_SCP_SHM:
+		return SPA_DATA_MemPtr;
+	case XDPW_INSTANCE_SCP_DMABUF:
+		return SPA_DATA_DmaBuf;
+	default:
+		return SPA_DATA_Invalid;
+	}
+}

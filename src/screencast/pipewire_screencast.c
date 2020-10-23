@@ -56,6 +56,7 @@ void pwr_copy_screencast(struct spa_buffer *spa_buf, struct xdpw_screencast_inst
 		writeFrameData(d[0].data, cast->xdpw_frames.screencopy_frame.data, cast->xdpw_frames.screencopy_frame.height,
 			cast->xdpw_frames.screencopy_frame.stride, cast->xdpw_frames.screencopy_frame.y_invert);
 
+		logprint(TRACE, "pipewire: type %p", d[0].type);
 		logprint(TRACE, "pipewire: pointer %p", d[0].data);
 		logprint(TRACE, "pipewire: size %d", d[0].maxsize);
 		logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
@@ -66,12 +67,18 @@ void pwr_copy_screencast(struct spa_buffer *spa_buf, struct xdpw_screencast_inst
 	case XDPW_INSTANCE_SCP_DMABUF:
 		d[0].type = SPA_DATA_DmaBuf;
 		d[0].maxsize = cast->xdpw_frames.screencopy_frame.size;
+		//d[0].mapoffset = 0;
 		d[0].mapoffset = cast->xdpw_frames.screencopy_frame.offset;
-		d[0].flags = 0;
+		d[0].flags = SPA_DATA_FLAG_READABLE | SPA_DATA_FLAG_DYNAMIC;
 		d[0].fd = cast->xdpw_frames.screencopy_frame.fd;
+		d[0].chunk->size = cast->xdpw_frames.screencopy_frame.size;
+		d[0].chunk->stride = cast->xdpw_frames.screencopy_frame.stride;
+		d[0].chunk->offset = cast->xdpw_frames.screencopy_frame.offset;
 
+		logprint(TRACE, "pipewire: type %p", d[0].type);
 		logprint(TRACE, "pipewire: fd %p", d[0].fd);
 		logprint(TRACE, "pipewire: size %d", d[0].maxsize);
+		logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
 		logprint(TRACE, "pipewire: width %d", cast->xdpw_frames.screencopy_frame.width);
 		logprint(TRACE, "pipewire: height %d", cast->xdpw_frames.screencopy_frame.height);
 		break;
@@ -102,6 +109,21 @@ static void pwr_on_event(void *data, uint64_t expirations) {
 	default:
 		abort();
 	}
+
+	struct spa_data *d;
+
+	d = pw_buf->buffer->datas;
+	if ((d[0].data) == NULL) {
+		logprint(TRACE, "pipewire: data pointer undefined");
+		return;
+	}
+
+	logprint(TRACE, "pipewire: type %p", d[0].type);
+	logprint(TRACE, "pipewire: fd %p", d[0].fd);
+	logprint(TRACE, "pipewire: size %d", d[0].maxsize);
+	logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
+	logprint(TRACE, "pipewire: width %d", cast->xdpw_frames.screencopy_frame.width);
+	logprint(TRACE, "pipewire: height %d", cast->xdpw_frames.screencopy_frame.height);
 
 	pw_stream_queue_buffer(cast->stream, pw_buf);
 
@@ -154,8 +176,7 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(cast->xdpw_frames.simple_frame.size),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(cast->xdpw_frames.simple_frame.stride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(ALIGN),
-			SPA_PARAM_BUFFERS_dataType, SPA_POD_Int((1<<SPA_DATA_MemPtr)));
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(ALIGN));
 		break;
 	case XDPW_INSTANCE_SCP_DMABUF:
 		params[0] = spa_pod_builder_add_object(&b,
@@ -164,8 +185,7 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 			SPA_PARAM_BUFFERS_blocks,  SPA_POD_Int(1),
 			SPA_PARAM_BUFFERS_size,    SPA_POD_Int(cast->xdpw_frames.simple_frame.size),
 			SPA_PARAM_BUFFERS_stride,  SPA_POD_Int(cast->xdpw_frames.simple_frame.stride),
-			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(ALIGN),
-			SPA_PARAM_BUFFERS_dataType, SPA_POD_Int((1<<SPA_DATA_DmaBuf)));
+			SPA_PARAM_BUFFERS_align,   SPA_POD_Int(ALIGN));
 		break;
 	default:
 		abort();
@@ -179,10 +199,83 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 	pw_stream_update_params(stream, params, 2);
 }
 
+static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
+	struct xdpw_screencast_instance *cast = data;
+	//struct pw_stream *stream = cast->stream;
+	struct spa_data *d;
+
+	d = buffer->buffer->datas;
+	if ((d[0].data) == NULL) {
+		logprint(TRACE, "pipewire: data pointer undefined");
+		return;
+	}
+
+	logprint(TRACE, "pipewire: buffer type %08x",d[0].type);
+	if (d[0].type == SPA_DATA_Invalid || ((d[0].type & (1<<xdpw_datatype_pw(cast->type))) == 0)) {
+		logprint(TRACE, "pipewire: wrong buffer type %08x",d[0].type);
+	}
+
+	logprint(TRACE, "pipewire: add buffer event handle");
+	logprint(TRACE, "********************");
+
+	switch (cast->type) {
+	case XDPW_INSTANCE_SCP_SHM:
+		d[0].type = SPA_DATA_MemPtr;
+		d[0].maxsize = cast->xdpw_frames.screencopy_frame.size;
+		d[0].mapoffset = 0;
+		d[0].chunk->size = cast->xdpw_frames.screencopy_frame.size;
+		d[0].chunk->stride = cast->xdpw_frames.screencopy_frame.stride;
+		d[0].chunk->offset = 0;
+		d[0].flags = 0;
+		d[0].fd = -1;
+
+		writeFrameData(d[0].data, cast->xdpw_frames.screencopy_frame.data, cast->xdpw_frames.screencopy_frame.height,
+			cast->xdpw_frames.screencopy_frame.stride, cast->xdpw_frames.screencopy_frame.y_invert);
+
+		logprint(TRACE, "pipewire: type %p", d[0].type);
+		logprint(TRACE, "pipewire: pointer %p", d[0].data);
+		logprint(TRACE, "pipewire: size %d", d[0].maxsize);
+		logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
+		logprint(TRACE, "pipewire: width %d", cast->xdpw_frames.screencopy_frame.width);
+		logprint(TRACE, "pipewire: height %d", cast->xdpw_frames.screencopy_frame.height);
+		logprint(TRACE, "pipewire: y_invert %d", cast->xdpw_frames.screencopy_frame.y_invert);
+		break;
+	case XDPW_INSTANCE_SCP_DMABUF:
+		d[0].type = SPA_DATA_DmaBuf;
+		d[0].maxsize = cast->xdpw_frames.screencopy_frame.size;
+		d[0].mapoffset = cast->xdpw_frames.screencopy_frame.offset;
+		d[0].flags = SPA_DATA_FLAG_READABLE | SPA_DATA_FLAG_DYNAMIC;
+		d[0].fd = cast->xdpw_frames.screencopy_frame.fd;
+		d[0].chunk->size = cast->xdpw_frames.screencopy_frame.size;
+		d[0].chunk->stride = cast->xdpw_frames.screencopy_frame.stride;
+		d[0].chunk->offset = cast->xdpw_frames.screencopy_frame.offset;
+
+		logprint(TRACE, "pipewire: type %p", d[0].type);
+		logprint(TRACE, "pipewire: fd %p", d[0].fd);
+		logprint(TRACE, "pipewire: size %d", d[0].maxsize);
+		logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
+		logprint(TRACE, "pipewire: width %d", cast->xdpw_frames.screencopy_frame.width);
+		logprint(TRACE, "pipewire: height %d", cast->xdpw_frames.screencopy_frame.height);
+		break;
+	default:
+		abort();
+	}
+	logprint(TRACE, "********************");
+}
+
+static void pwr_handle_stream_remove_buffer(void *data, struct pw_buffer *buffer) {
+	//struct xdpw_screencast_instance *cast = data;
+	//struct pw_stream *stream = cast->stream;
+
+	logprint(TRACE, "pipewire: remove buffer event handle");
+}
+
 static const struct pw_stream_events pwr_stream_events = {
 	PW_VERSION_STREAM_EVENTS,
 	.state_changed = pwr_handle_stream_state_changed,
 	.param_changed = pwr_handle_stream_param_changed,
+	.add_buffer = pwr_handle_stream_add_buffer,
+	.remove_buffer = pwr_handle_stream_remove_buffer,
 };
 
 void xdpw_pwr_stream_init(struct xdpw_screencast_instance *cast) {
@@ -272,7 +365,8 @@ void xdpw_pwr_stream_init(struct xdpw_screencast_instance *cast) {
 		PW_DIRECTION_OUTPUT,
 		PW_ID_ANY,
 		(PW_STREAM_FLAG_DRIVER |
-			PW_STREAM_FLAG_MAP_BUFFERS),
+			PW_STREAM_FLAG_MAP_BUFFERS |
+			PW_STREAM_FLAG_ALLOC_BUFFERS),
 		&param, 1);
 
 }

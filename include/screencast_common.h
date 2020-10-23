@@ -144,5 +144,7 @@ void randname(char *buf);
 enum spa_video_format xdpw_format_pw(
 	struct xdpw_screencast_instance *cast);
 enum spa_video_format xdpw_format_pw_strip_alpha(enum spa_video_format format);
+enum spa_data_type xdpw_datatype_pw(enum xdpw_instance_type type);
+
 
 #endif /* SCREENCAST_COMMON_H */
