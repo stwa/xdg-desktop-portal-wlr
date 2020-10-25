@@ -11,6 +11,15 @@
 #include "wlr_screencast.h"
 #include "xdpw.h"
 #include "logger.h"
+#ifndef __FreeBSD__
+#include <unistd.h>
+#include <sys/mman.h>
+#include <sys/syscall.h>
+#include <linux/memfd.h>
+#include <fcntl.h>
+
+#include "util/mem.h"
+#endif
 
 static void writeFrameData(void *pwFramePointer, void *wlrFramePointer,
 		uint32_t height, uint32_t stride, bool inverted) {
@@ -60,7 +69,9 @@ static void pwr_on_event(void *data, uint64_t expirations) {
 	writeFrameData(d[0].data, cast->simple_frame.data, cast->simple_frame.height,
 		cast->simple_frame.stride, cast->simple_frame.y_invert);
 
+	logprint(TRACE, "pipewire: datatype %d", d[0].type);
 	logprint(TRACE, "pipewire: pointer %p", d[0].data);
+	logprint(TRACE, "pipewire: fd %d", d[0].fd);
 	logprint(TRACE, "pipewire: size %d", d[0].maxsize);
 	logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
 	logprint(TRACE, "pipewire: width %d", cast->simple_frame.width);
@@ -133,6 +144,12 @@ uint32_t pwr_choose_buffertype(struct xdpw_screencast_instance *cast, uint32_t b
 		type = SPA_DATA_MemPtr;
 		return type;
 	}
+#ifndef __FreeBSD__
+	if ((buffermask & (1<<SPA_DATA_MemFd)) > 0) {
+		type = SPA_DATA_MemFd;
+		return type;
+	}
+#endif
 	if ((buffermask & (1<<SPA_DATA_MemPtr)) > 0) {
 		type = SPA_DATA_MemPtr;
 		return type;
@@ -177,6 +194,47 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 		}
 
 		d[0].data = mmap(NULL, d[0].maxsize, PROT_READ | PROT_WRITE, MAP_SHARED, d[0].fd, d[0].mapoffset);
+		if (d[0].data == MAP_FAILED) {
+			logprint(ERROR, "pipewire: unable to mmap memory");
+			return;
+		}
+	} else if (d[0].type == SPA_DATA_MemFd) {
+		unsigned int seals;
+
+		d[0].type = SPA_DATA_MemFd;
+		d[0].flags = SPA_DATA_FLAG_READWRITE;
+#ifndef __FreeBSD__
+		d[0].fd = memfd_create("xdpw-screencast-memfd", MFD_CLOEXEC | MFD_ALLOW_SEALING);
+#else
+		d[0].fd = -1;
+#endif
+		if (d[0].fd == -1) {
+			logprint(ERROR, "pipewire: unable to create memfd");
+			return;
+		}
+		d[0].mapoffset = 0;
+		d[0].maxsize = cast->simple_frame.stride * cast->simple_frame.height;
+		d[0].chunk->size = cast->simple_frame.size;
+		d[0].chunk->stride = cast->simple_frame.stride;
+		d[0].chunk->offset = 0;
+
+		/* truncate to the right size before we set seals */
+		if (ftruncate(d[0].fd, d[0].maxsize) < 0) {
+			logprint(ERROR, "pipewire: unable to truncate memfd to %d", d[0].maxsize);
+			return;
+		}
+#ifndef __FreeBSD__
+		/* not enforced yet but server might require SEAL_SHRINK later */
+		seals = F_SEAL_GROW | F_SEAL_SHRINK | F_SEAL_SEAL;
+		if (fcntl(d[0].fd, F_ADD_SEALS, seals) == -1) {
+			logprint(WARN, "pipewire: unable to add seal");
+			pw_log_warn("Failed to add seals: %m");
+		}
+#endif
+
+		/* now mmap so we can write to it in the process function above */
+		d[0].data = mmap(NULL, d[0].maxsize, PROT_READ|PROT_WRITE,
+				MAP_SHARED, d[0].fd, d[0].mapoffset);
 		if (d[0].data == MAP_FAILED) {
 			logprint(ERROR, "pipewire: unable to mmap memory");
 			return;
