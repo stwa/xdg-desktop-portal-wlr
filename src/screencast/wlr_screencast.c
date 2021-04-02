@@ -4,6 +4,7 @@
 #include "wlr-screencopy-unstable-v1-client-protocol.h"
 #include "xdg-output-unstable-v1-client-protocol.h"
 #include <fcntl.h>
+#include <json-c/json.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdlib.h>
@@ -375,8 +376,8 @@ static bool wlr_output_chooser(struct xdpw_output_chooser *chooser,
 		struct wl_list *output_list, struct xdpw_wlr_output **output) {
 	logprint(DEBUG, "wlroots: output chooser called");
 	struct xdpw_wlr_output *out;
-	size_t name_size = 0;
-	char *name = NULL;
+	size_t chooser_msg_size = 0;
+	char *chooser_msg = NULL;
 	*output = NULL;
 
 	int chooser_in[2]; //p -> c
@@ -399,9 +400,10 @@ static bool wlr_output_chooser(struct xdpw_output_chooser *chooser,
 		goto error_fork;
 	}
 
+	FILE *f;
 	switch (chooser->type) {
 	case XDPW_CHOOSER_DMENU:;
-		FILE *f = fdopen(chooser_in[1], "w");
+		f = fdopen(chooser_in[1], "w");
 		if (f == NULL) {
 			perror("fdopen pipe chooser_in");
 			logprint(ERROR, "Failed to create stream writing to pipe chooser_in");
@@ -412,6 +414,41 @@ static bool wlr_output_chooser(struct xdpw_output_chooser *chooser,
 		}
 		fclose(f);
 		break;
+	case XDPW_CHOOSER_JSON:;
+		f = fdopen(chooser_in[1], "w");
+		if (f == NULL) {
+			perror("fdopen pipe chooser_in");
+			logprint(ERROR, "Failed to create stream writing to pipe chooser_in");
+			goto error_fork;
+		}
+		struct json_object *obj = json_object_new_object();
+		json_object_object_add(obj, "version", json_object_new_int(1));
+		json_object_object_add(obj, "revision", json_object_new_int(0));
+		struct json_object *monitor_arr = json_object_new_array();
+		wl_list_for_each(out, output_list, link) {
+			struct json_object *monitor_obj = json_object_new_object();
+			json_object_object_add(monitor_obj, "name", json_object_new_string(out->name));
+			json_object_object_add(monitor_obj, "make", json_object_new_string(out->make));
+			json_object_object_add(monitor_obj, "model", json_object_new_string(out->model));
+			json_object_object_add(monitor_obj, "id", json_object_new_int(out->id));
+			json_object_array_add(monitor_arr, monitor_obj);
+		}
+		json_object_object_add(obj, "monitors", monitor_arr);
+		struct json_object *options_obj = json_object_new_object();
+		json_object_object_add(options_obj, "persist_mode", json_object_new_int(0));
+		json_object_object_add(obj, "options", options_obj);
+		size_t json_msg_size;
+		const char *json_msg = json_object_to_json_string_length(obj, JSON_C_TO_STRING_PLAIN, &json_msg_size);
+		if (json_msg_size == 0 || !json_msg) {
+			fclose(f);
+			logprint(ERROR, "Failed to create json_msg");
+			goto error_chooser_out;
+		}
+		fwrite(json_msg, 1, json_msg_size, f);
+		logprint(TRACE, "chooser: json_msg %s", json_msg);
+		fclose(f);
+		json_object_put(obj);
+		break;
 	default:
 		close(chooser_in[1]);
 	}
@@ -421,7 +458,7 @@ static bool wlr_output_chooser(struct xdpw_output_chooser *chooser,
 		return false;
 	}
 
-	FILE *f = fdopen(chooser_out[0], "r");
+	f = fdopen(chooser_out[0], "r");
 	if (f == NULL) {
 		perror("fdopen pipe chooser_out");
 		logprint(ERROR, "Failed to create stream reading from pipe chooser_out");
@@ -429,27 +466,78 @@ static bool wlr_output_chooser(struct xdpw_output_chooser *chooser,
 		goto end;
 	}
 
-	ssize_t nread = getline(&name, &name_size, f);
+	ssize_t nread = getline(&chooser_msg, &chooser_msg_size, f);
 	fclose(f);
 	if (nread < 0) {
 		perror("getline failed");
 		goto end;
 	}
 
-	//Strip newline
-	char *p = strchr(name, '\n');
-	if (p != NULL) {
-		*p = '\0';
-	}
-
-	logprint(TRACE, "wlroots: output chooser %s selects output %s", chooser->cmd, name);
-	wl_list_for_each(out, output_list, link) {
-		if (strcmp(out->name, name) == 0) {
+	switch (chooser->type) {
+	case XDPW_CHOOSER_JSON:;
+		struct json_object *obj = json_tokener_parse(chooser_msg);
+		struct json_object *value;
+		json_object_object_get_ex(obj, "version", &value);
+		if (json_object_get_int(value) != 1) {
+			logprint(ERROR, "Chooser returned msg with wrong version %d", json_object_get_int(value));
+			goto end;
+		}
+		json_object_object_get_ex(obj, "revision", &value);
+		if (json_object_get_int(value) > 0) {
+			logprint(ERROR, "Chooser returned msg with wrong revision %d", json_object_get_int(value));
+			goto end;
+		}
+		json_object_object_get_ex(obj, "target_type", &value);
+		const char *target_type = json_object_get_string(value);
+		if (strcmp(target_type, "monitor") != 0) {
+			logprint(ERROR, "Chooser returned msg with wrong target_type %s", target_type);
+			goto end;
+		}
+		struct json_object *target;
+		json_object_object_get_ex(obj, "target", &target);
+		wl_list_for_each(out, output_list, link) {
+			json_object_object_get_ex(target, "name", &value);
+			if (strcmp(out->name, json_object_get_string(value)) != 0) {
+				logprint(ERROR, "chooser: wrong name %s:%s", out->name, json_object_get_string(value));
+				continue;
+			}
+			json_object_object_get_ex(target, "model", &value);
+			if (strcmp(out->model, json_object_get_string(value)) != 0) {
+				logprint(ERROR, "chooser: wrong model %s:%s", out->model, json_object_get_string(value));
+				continue;
+			}
+			json_object_object_get_ex(target, "make", &value);
+			if (strcmp(out->make, json_object_get_string(value)) != 0) {
+				logprint(ERROR, "chooser: wrong make %s:%s", out->make, json_object_get_string(value));
+				continue;
+			}
+			json_object_object_get_ex(target, "id", &value);
+			if (out->id != (unsigned int)json_object_get_int(value)) {
+				logprint(ERROR, "chooser: wrong name %u:%d", out->id, json_object_get_int(value));
+				continue;
+			}
 			*output = out;
 			break;
 		}
+		break;
+	default:
+		//Strip newline
+		char *p = strchr(chooser_msg, '\n');
+		if (p != NULL) {
+			*p = '\0';
+		}
+
+		char *name = chooser_msg;
+		logprint(TRACE, "wlroots: output chooser %s selects output %s", chooser->cmd, name);
+		wl_list_for_each(out, output_list, link) {
+			if (strcmp(out->name, name) == 0) {
+				*output = out;
+				break;
+			}
+		}
+
 	}
-	free(name);
+	free(chooser_msg);
 
 end:
 	return true;
@@ -504,7 +592,8 @@ struct xdpw_wlr_output *xdpw_wlr_output_chooser(struct xdpw_screencast_context *
 			return xdpw_wlr_output_first(&ctx->output_list);
 		}
 	case XDPW_CHOOSER_DMENU:
-	case XDPW_CHOOSER_SIMPLE:;
+	case XDPW_CHOOSER_SIMPLE:
+	case XDPW_CHOOSER_JSON:;
 		struct xdpw_wlr_output *output = NULL;
 		if (!ctx->state->config->screencast_conf.chooser_cmd) {
 			logprint(ERROR, "wlroots: no output chooser given");
