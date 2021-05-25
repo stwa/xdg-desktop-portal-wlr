@@ -26,19 +26,28 @@ static void writeFrameData(void *pwFramePointer, void *wlrFramePointer,
 	return;
 }
 
-static inline struct spa_pod *build_format(struct spa_pod_builder *b, uint32_t format, uint32_t format_without_alpha,
+static inline struct spa_pod *build_format(struct spa_pod_builder *b, uint32_t format,
 		uint32_t width, uint32_t height, uint32_t framerate)
 {
-	struct spa_pod_frame f;
-	spa_pod_builder_push_object(b, &f, SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	struct spa_pod_frame f[2];
+
+	enum spa_video_format format_without_alpha = xdpw_format_pw_strip_alpha(format);
+
+	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
 	spa_pod_builder_add(b, SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video), 0);
 	spa_pod_builder_add(b, SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), 0);
-	if (format_without_alpha != SPA_VIDEO_FORMAT_UNKNOWN) {
-		spa_pod_builder_add(b, SPA_FORMAT_VIDEO_format,
-			SPA_POD_CHOICE_ENUM_Id(3, format, format, format_without_alpha), 0);
+	/* format */
+	spa_pod_builder_prop(b, SPA_FORMAT_VIDEO_format, 0);
+	if (format_without_alpha == SPA_VIDEO_FORMAT_UNKNOWN) {
+		spa_pod_builder_id(b, format);
 	} else {
-		spa_pod_builder_add(b, SPA_FORMAT_VIDEO_format,
-			SPA_POD_CHOICE_ENUM_Id(2, format, format), 0);
+		/* build an enumeration of formats */
+		spa_pod_builder_push_choice(b, &f[1], SPA_CHOICE_Enum, 0);
+		/* preference, first format, second format, ... */
+		spa_pod_builder_id(b, format);
+		spa_pod_builder_id(b, format);
+		spa_pod_builder_id(b, format_without_alpha);
+		spa_pod_builder_pop(b, &f[1]);
 	}
 	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_size,
 		SPA_POD_CHOICE_RANGE_Rectangle(
@@ -55,7 +64,7 @@ static inline struct spa_pod *build_format(struct spa_pod_builder *b, uint32_t f
 			&SPA_FRACTION(1, 1),
 			&SPA_FRACTION(framerate, 1)),
 		0);
-	return spa_pod_builder_pop(b, &f);
+	return spa_pod_builder_pop(b, &f[0]);
 }
 
 static void pwr_on_event(void *data, uint64_t expirations) {
@@ -196,10 +205,8 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 	logprint(DEBUG, "pipewire: registered event %p", cast->event);
 
 	enum spa_video_format format = xdpw_format_pw_from_wl_shm(cast->simple_frame.format);
-	enum spa_video_format format_without_alpha =
-		xdpw_format_pw_strip_alpha(format);
 
-	const struct spa_pod *param = build_format(&b, format, format_without_alpha,
+	const struct spa_pod *param = build_format(&b, format,
 			cast->simple_frame.width, cast->simple_frame.height, cast->framerate);
 
 	pw_stream_add_listener(cast->stream, &cast->stream_listener,
