@@ -50,10 +50,7 @@ static inline struct spa_pod *build_format(struct spa_pod_builder *b, uint32_t f
 		spa_pod_builder_pop(b, &f[1]);
 	}
 	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_size,
-		SPA_POD_CHOICE_RANGE_Rectangle(
-			&SPA_RECTANGLE(width, height),
-			&SPA_RECTANGLE(1, 1),
-			&SPA_RECTANGLE(4096, 4096)),
+		SPA_POD_Rectangle(&SPA_RECTANGLE(width, height)),
 		0);
 	// variable framerate
 	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_framerate,
