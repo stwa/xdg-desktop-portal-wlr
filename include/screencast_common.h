@@ -48,6 +48,12 @@ struct xdpw_frame_damage {
 	uint32_t height;
 };
 
+enum xdpw_screencopy_type {
+	XDPW_SCREENCOPY_NONE,
+	XDPW_SCREENCOPY_SHM,
+	XDPW_SCREENCOPY_DMABUF,
+};
+
 struct xdpw_frame {
 	uint32_t size;
 	uint32_t stride;
@@ -123,6 +129,7 @@ struct xdpw_screencast_instance {
 	bool with_cursor;
 	int err;
 	bool quit;
+	enum xdpw_screencopy_type screencopy_type;
 
 	// fps limit
 	struct fps_limit_state fps_limit;
