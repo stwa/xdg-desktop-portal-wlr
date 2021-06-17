@@ -5,6 +5,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <libdrm/drm_fourcc.h>
 
 void randname(char *buf) {
 	struct timespec ts;
@@ -72,6 +73,31 @@ enum spa_video_format xdpw_format_pw_from_wl_shm(enum wl_shm_format format) {
 	case WL_SHM_FORMAT_BGRX8888:
 		return SPA_VIDEO_FORMAT_xRGB;
 	case WL_SHM_FORMAT_NV12:
+		return SPA_VIDEO_FORMAT_NV12;
+	default:
+		abort();
+	}
+}
+
+enum spa_video_format xdpw_format_pw_from_drm_fourcc(uint32_t format) {
+	switch (format) {
+	case DRM_FORMAT_ARGB8888:
+		return SPA_VIDEO_FORMAT_BGRA;
+	case DRM_FORMAT_XRGB8888:
+		return SPA_VIDEO_FORMAT_BGRx;
+	case DRM_FORMAT_RGBA8888:
+		return SPA_VIDEO_FORMAT_ABGR;
+	case DRM_FORMAT_RGBX8888:
+		return SPA_VIDEO_FORMAT_xBGR;
+	case DRM_FORMAT_ABGR8888:
+		return SPA_VIDEO_FORMAT_RGBA;
+	case DRM_FORMAT_XBGR8888:
+		return SPA_VIDEO_FORMAT_RGBx;
+	case DRM_FORMAT_BGRA8888:
+		return SPA_VIDEO_FORMAT_ARGB;
+	case DRM_FORMAT_BGRX8888:
+		return SPA_VIDEO_FORMAT_xRGB;
+	case DRM_FORMAT_NV12:
 		return SPA_VIDEO_FORMAT_NV12;
 	default:
 		abort();
