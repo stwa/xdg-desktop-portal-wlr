@@ -60,6 +60,12 @@ struct xdpw_screencopy_frame {
 	enum wl_shm_format format;
 };
 
+struct xdpw_screencopy_dmabuf_frame {
+	uint32_t width;
+	uint32_t height;
+	uint32_t fourcc;
+};
+
 struct xdpw_screencast_context {
 
 	// xdpw
@@ -107,6 +113,7 @@ struct xdpw_screencast_instance {
 	uint32_t max_framerate;
 	struct zwlr_screencopy_frame_v1 *wlr_frame;
 	struct xdpw_screencopy_frame screencopy_frame;
+	struct xdpw_screencopy_dmabuf_frame screencopy_dmabuf_frame;
 	bool with_cursor;
 	int err;
 	bool quit;
