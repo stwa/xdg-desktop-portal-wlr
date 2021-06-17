@@ -6,6 +6,14 @@
 #define XDPW_PWR_BUFFERS 4
 #define XDPW_PWR_ALIGN 16
 
+struct xdpw_pwr_frame {
+	struct wl_buffer *buffer;
+};
+
+struct xdpw_pwr_screencopy_frame {
+	struct wl_buffer *buffer;
+};
+
 void xdpw_pwr_trigger_process(struct xdpw_screencast_instance *cast);
 bool xdpw_pwr_is_driving(struct xdpw_screencast_instance *cast);
 void xdpw_pwr_dequeue_buffer(struct xdpw_screencast_instance *cast);

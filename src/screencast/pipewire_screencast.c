@@ -166,8 +166,10 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 		}
 
 		// create wl_buffer
-		buffer->user_data = import_wl_shm_buffer(cast, d[0].fd, cast->screencopy_frame.format,
+		struct xdpw_pwr_screencopy_frame *frame = calloc(1,sizeof(struct xdpw_pwr_screencopy_frame));
+		frame->buffer = import_wl_shm_buffer(cast, d[0].fd, cast->screencopy_frame.format,
 			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->screencopy_frame.stride);
+		buffer->user_data = frame;
 	}
 }
 
@@ -184,7 +186,8 @@ static void pwr_handle_stream_remove_buffer(void *data, struct pw_buffer *buffer
 	}
 	switch (d[0].type) {
 	case SPA_DATA_MemFd:
-		wl_buffer_destroy(buffer->user_data);
+		wl_buffer_destroy(((struct xdpw_pwr_screencopy_frame*)buffer->user_data)->buffer);
+		free(buffer->user_data);
 		close(d[0].fd);
 		break;
 	default:
@@ -223,7 +226,8 @@ void xdpw_pwr_dequeue_buffer(struct xdpw_screencast_instance *cast) {
 	struct spa_data *d = spa_buf->datas;
 	cast->current_frame.size = d[0].chunk->size;
 	cast->current_frame.stride = d[0].chunk->stride;
-	cast->current_frame.buffer = cast->current_frame.current_pw_buffer->user_data;
+	cast->current_frame.buffer =
+		((struct xdpw_pwr_frame*)cast->current_frame.current_pw_buffer->user_data)->buffer;
 }
 
 void xdpw_pwr_enqueue_buffer(struct xdpw_screencast_instance *cast) {
