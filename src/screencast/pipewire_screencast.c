@@ -1,5 +1,6 @@
 #include "pipewire_screencast.h"
 
+#include <gbm.h>
 #include <pipewire/pipewire.h>
 #include <spa/utils/result.h>
 #include <spa/param/props.h>
@@ -247,9 +248,15 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 
 		struct xdpw_pwr_screencopy_dmabuf_frame *frame = calloc(1,sizeof(struct xdpw_pwr_screencopy_dmabuf_frame));
 
+		uint32_t flags = GBM_BO_USE_RENDERING;
+
+		if (cast->ctx->state->config->screencast_conf.force_mod_linear)
+			flags |= GBM_BO_USE_LINEAR;
+
 		frame->bo = gbm_bo_create(cast->ctx->gbm,
 				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height,
-				cast->screencopy_dmabuf_frame.fourcc, GBM_BO_USE_RENDERING);
+				cast->screencopy_dmabuf_frame.fourcc, flags);
+
 		if (frame->bo == NULL) {
 			logprint(ERROR, "wlroots: failed to create gbm_bo");
 			free(frame);
