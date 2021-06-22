@@ -20,6 +20,7 @@
 #include "xdpw.h"
 #include "logger.h"
 #include "fps_limit.h"
+#include "xdpw_gbm.h"
 
 void wlr_frame_free(struct xdpw_screencast_instance *cast) {
 	zwlr_screencopy_frame_v1_destroy(cast->wlr_frame);
@@ -660,6 +661,12 @@ int xdpw_wlr_screencopy_init(struct xdpw_state *state) {
 		return -1;
 	}
 
+	// make sure we have a gbm device
+	ctx->gbm = create_gbm_device();
+	if (!ctx->gbm) {
+		logprint(ERROR, "system doesn't support %s!", "gbm");
+	}
+
 	return 0;
 }
 
@@ -681,6 +688,9 @@ void xdpw_wlr_screencopy_finish(struct xdpw_screencast_context *ctx) {
 	}
 	if (ctx->shm) {
 		wl_shm_destroy(ctx->shm);
+	}
+	if (ctx->gbm) {
+		destroy_gbm_device(ctx->gbm);
 	}
 	if (ctx->xdg_output_manager) {
 		zxdg_output_manager_v1_destroy(ctx->xdg_output_manager);
