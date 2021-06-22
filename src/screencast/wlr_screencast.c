@@ -100,6 +100,11 @@ static void wlr_frame_buffer_done(void *data,
 			cast->pwr_format.size.width != cast->screencopy_frame.width ||
 			cast->pwr_format.size.height != cast->screencopy_frame.height;
 		break;
+	case XDPW_SCREENCOPY_DMABUF:
+		changed = cast->pwr_format.format != xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc) ||
+			cast->pwr_format.size.width != cast->screencopy_dmabuf_frame.width ||
+			cast->pwr_format.size.height != cast->screencopy_dmabuf_frame.height;
+		break;
 	default:
 		abort();
 	}
@@ -119,6 +124,8 @@ static void wlr_frame_buffer_done(void *data,
 	case XDPW_SCREENCOPY_SHM:
 		incompatible = cast->simple_frame.size != cast->screencopy_frame.size ||
 			cast->simple_frame.stride != cast->screencopy_frame.stride;
+		break;
+	case XDPW_SCREENCOPY_DMABUF:
 		break;
 	default:
 		abort();
