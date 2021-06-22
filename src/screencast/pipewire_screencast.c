@@ -8,6 +8,7 @@
 #include <sys/mman.h>
 #include <unistd.h>
 #include <assert.h>
+#include <libdrm/drm_fourcc.h>
 
 #include "wlr_screencast.h"
 #include "xdpw.h"
@@ -151,6 +152,10 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 	struct spa_pod_builder b =
 		SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[2];
+	int blocks;
+	int size;
+	int stride;
+	int buffertypes;
 
 	if (!param || id != SPA_PARAM_Format) {
 		return;
@@ -161,18 +166,21 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 
 	if (spa_pod_find_prop(param, NULL, SPA_FORMAT_VIDEO_modifier) == NULL) {
 		cast->screencopy_type = XDPW_SCREENCOPY_SHM;
+		blocks = 1;
+		size = cast->screencopy_frame.size;
+		stride = cast->screencopy_frame.stride;
+		buffertypes = (1<<SPA_DATA_MemFd);
 	} else {
-		abort();
+		if (cast->pwr_format.modifier != DRM_FORMAT_MOD_INVALID)
+			abort();
+		cast->screencopy_type = XDPW_SCREENCOPY_DMABUF;
+		blocks = 1;
+		size = 0;
+		stride = 0;
+		buffertypes = (1<<SPA_DATA_DmaBuf);
 	}
 
-	switch (cast->screencopy_type) {
-	case XDPW_SCREENCOPY_SHM:
-		params[0] = build_buffer(&b, 1, cast->screencopy_frame.size, cast->screencopy_frame.stride,
-				(1<<SPA_DATA_MemFd));
-		break;
-	default:
-		abort();
-	}
+	params[0] = build_buffer(&b, blocks, size, stride, buffertypes);
 
 	params[1] = spa_pod_builder_add_object(&b,
 		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
@@ -406,15 +414,18 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b =
 		SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	const struct spa_pod *params[1];
+	const struct spa_pod *params[2];
 
-	enum spa_video_format format = xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format);
+	uint64_t modifier = DRM_FORMAT_MOD_INVALID;
+	params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
+			cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
+			&modifier, 1);
 
-	params[0] = build_format(&b, format,
+	params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 			NULL, 0);
 
-	pw_stream_update_params(stream, params, 1);
+	pw_stream_update_params(stream, params, 2);
 }
 
 void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
@@ -425,6 +436,7 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	const struct spa_pod *params[2];
 
 	char name[] = "xdpw-stream-XXXXXX";
 	randname(name + strlen(name) - 6);
@@ -439,9 +451,12 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 	}
 	cast->pwr_stream_state = false;
 
-	enum spa_video_format format = xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format);
+	uint64_t modifier = DRM_FORMAT_MOD_INVALID;
+	params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
+			cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
+			&modifier, 1);
 
-	const struct spa_pod *param = build_format(&b, format,
+	params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 			NULL, 0);
 
@@ -453,7 +468,7 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 		PW_ID_ANY,
 		(PW_STREAM_FLAG_DRIVER |
 			PW_STREAM_FLAG_ALLOC_BUFFERS),
-		&param, 1);
+		params, 2);
 }
 
 void xdpw_pwr_stream_destroy(struct xdpw_screencast_instance *cast) {
