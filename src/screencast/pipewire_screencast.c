@@ -9,6 +9,7 @@
 #include <unistd.h>
 #include <assert.h>
 #include <libdrm/drm_fourcc.h>
+#include "linux-dmabuf-unstable-v1-client-protocol.h"
 
 #include "wlr_screencast.h"
 #include "xdpw.h"
@@ -153,6 +154,8 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 	// Select buffer type from negotiation result
 	if ((d[0].type & (1u << SPA_DATA_MemFd)) > 0) {
 		d[0].type = SPA_DATA_MemFd;
+	} else if ((d[0].type & (1u << SPA_DATA_DmaBuf)) > 0) {
+		d[0].type = SPA_DATA_DmaBuf;
 	} else {
 		logprint(ERROR, "pipewire: unsupported buffer type");
 		cast->err = 1;
@@ -192,6 +195,67 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 		frame->buffer = import_wl_shm_buffer(cast, d[0].fd, xdpw_format_wl_shm_from_drm_fourcc(cast->screencopy_frame.format),
 			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->screencopy_frame.stride);
 		buffer->user_data = frame;
+	} else if (d[0].type == SPA_DATA_DmaBuf) {
+		assert(cast->screencopy_type == XDPW_SCREENCOPY_DMABUF);
+
+		struct xdpw_pwr_screencopy_dmabuf_frame *frame = calloc(1,sizeof(struct xdpw_pwr_screencopy_dmabuf_frame));
+
+		frame->bo = gbm_bo_create(cast->ctx->gbm,
+				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height,
+				cast->screencopy_dmabuf_frame.fourcc, GBM_BO_USE_RENDERING);
+		if (frame->bo == NULL) {
+			logprint(ERROR, "wlroots: failed to create gbm_bo");
+			free(frame);
+			return;
+		}
+
+		struct zwp_linux_buffer_params_v1 *params;
+		params = zwp_linux_dmabuf_v1_create_params(cast->ctx->linux_dmabuf);
+		if (!params) {
+			logprint(ERROR, "wlroots: failed to create linux_buffer_params");
+			gbm_bo_destroy(frame->bo);
+			free(frame);
+			return;
+		}
+
+		uint32_t offset = gbm_bo_get_offset(frame->bo, 0);
+		uint32_t stride = gbm_bo_get_stride(frame->bo);
+		uint64_t mod = gbm_bo_get_modifier(frame->bo);
+		int fd = gbm_bo_get_fd(frame->bo);
+
+		if (fd < 0) {
+			logprint(ERROR, "wlroots: failed to get file descriptor");
+			zwp_linux_buffer_params_v1_destroy(params);
+			gbm_bo_destroy(frame->bo);
+			free(frame);
+			return;
+		}
+
+		zwp_linux_buffer_params_v1_add(params, fd, 0, offset, stride,
+			mod >> 32, mod & 0xffffffff);
+		frame->buffer = zwp_linux_buffer_params_v1_create_immed(params,
+			cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height,
+			cast->screencopy_dmabuf_frame.fourcc, /* flags */ 0);
+		zwp_linux_buffer_params_v1_destroy(params);
+
+		if (!frame->buffer) {
+			logprint(ERROR, "wlroots: failed to create buffer");
+			gbm_bo_destroy(frame->bo);
+			free(frame);
+			return;
+		}
+
+		d[0].type = SPA_DATA_DmaBuf;
+		d[0].maxsize = stride * cast->screencopy_dmabuf_frame.height;
+		d[0].mapoffset = 0;
+		d[0].chunk->size = stride * cast->screencopy_dmabuf_frame.height;
+		d[0].chunk->stride = stride;
+		d[0].chunk->offset = offset;
+		d[0].flags = 0;
+		d[0].fd = fd;
+		d[0].data = NULL;
+
+		buffer->user_data = frame;
 	}
 }
 
@@ -209,6 +273,12 @@ static void pwr_handle_stream_remove_buffer(void *data, struct pw_buffer *buffer
 	switch (d[0].type) {
 	case SPA_DATA_MemFd:
 		wl_buffer_destroy(((struct xdpw_pwr_screencopy_frame*)buffer->user_data)->buffer);
+		free(buffer->user_data);
+		close(d[0].fd);
+		break;
+	case SPA_DATA_DmaBuf:
+		wl_buffer_destroy(((struct xdpw_pwr_screencopy_dmabuf_frame*)buffer->user_data)->buffer);
+		gbm_bo_destroy(((struct xdpw_pwr_screencopy_dmabuf_frame*)buffer->user_data)->bo);
 		free(buffer->user_data);
 		close(d[0].fd);
 		break;
