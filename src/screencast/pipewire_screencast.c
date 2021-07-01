@@ -300,7 +300,12 @@ fixate_format:
 		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_Header),
 		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_header)));
 
-	pw_stream_update_params(stream, params, 2);
+	params[2] = spa_pod_builder_add_object(&b,
+		SPA_TYPE_OBJECT_ParamMeta, SPA_PARAM_Meta,
+		SPA_PARAM_META_type, SPA_POD_Id(SPA_META_VideoDamage),
+		SPA_PARAM_META_size, SPA_POD_Int(sizeof(struct spa_meta_region)));
+
+	pw_stream_update_params(stream, params, 3);
 }
 
 static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
@@ -418,6 +423,14 @@ void xdpw_pwr_enqueue_buffer(struct xdpw_screencast_instance *cast) {
 		h->dts_offset = 0;
 	}
 
+	struct spa_meta_region *damage;
+	if ((damage = spa_buffer_find_meta_data(spa_buf, SPA_META_VideoDamage, sizeof(*damage)))) {
+		damage->region.position.x = cast->current_frame.damage.x;
+		damage->region.position.y = cast->current_frame.damage.y;
+		damage->region.size.width = cast->current_frame.damage.width;
+		damage->region.size.height = cast->current_frame.damage.height;
+	}
+
 	if (buffer_corrupt) {
 		for (uint32_t plane = 0; plane < spa_buf->n_datas; plane++) {
 			d[plane].chunk->flags = SPA_CHUNK_FLAG_CORRUPTED;
@@ -441,6 +454,9 @@ void xdpw_pwr_enqueue_buffer(struct xdpw_screencast_instance *cast) {
 	logprint(TRACE, "pipewire: width %d", cast->current_frame.xdpw_buffer->width);
 	logprint(TRACE, "pipewire: height %d", cast->current_frame.xdpw_buffer->height);
 	logprint(TRACE, "pipewire: y_invert %d", cast->current_frame.y_invert);
+	logprint(TRACE, "pipewire: damage %u,%u (%ux%u)",
+			cast->current_frame.damage.x, cast->current_frame.damage.y,
+			cast->current_frame.damage.width, cast->current_frame.damage.height);
 	logprint(TRACE, "********************");
 
 	pw_stream_queue_buffer(cast->stream, pw_buf);
