@@ -159,6 +159,8 @@ void randname(char *buf);
 int anonymous_shm_open(void);
 struct wl_buffer *import_wl_shm_buffer(struct xdpw_screencast_instance *cast, int fd,
 	enum wl_shm_format fmt, int width, int height, int stride);
+bool wlr_query_dmabuf_modifiers(struct xdpw_screencast_context *ctx, uint32_t drm_format,
+		uint32_t num_modifiers, uint64_t *modifiers, uint32_t *max_modifiers);
 enum wl_shm_format xdpw_format_wl_shm_from_drm_fourcc(uint32_t format);
 uint32_t xdpw_format_drm_fourcc_from_wl_shm(enum wl_shm_format format);
 enum spa_video_format xdpw_format_pw_from_drm_fourcc(uint32_t format);
