@@ -124,17 +124,35 @@ static struct spa_pod *build_format(struct spa_pod_builder *b, enum spa_video_fo
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
+static bool build_modifierlist(struct xdpw_screencast_instance *cast,
+		uint32_t drm_format, uint64_t **modifiers, uint32_t *modifier_count) {
+	if (!wlr_query_dmabuf_modifiers(cast->ctx, drm_format, 0, NULL, modifier_count)) {
+		*modifiers = NULL;
+		*modifier_count = 0;
+		return false;
+	}
+	if (*modifier_count == 0) {
+		logprint(INFO, "wlroots: no modifiers available for format %u", drm_format);
+		*modifiers = NULL;
+		return true;
+	}
+	*modifiers = calloc(*modifier_count, sizeof(uint64_t));
+	bool ret = wlr_query_dmabuf_modifiers(cast->ctx, drm_format, *modifier_count, *modifiers, modifier_count);
+	logprint(INFO, "wlroots: num_modififiers %d", *modifier_count);
+	return ret;
+}
+
 static uint32_t build_formats(struct spa_pod_builder *b, struct xdpw_screencast_instance *cast, const struct spa_pod **params) {
 
 	uint32_t param_count;
-	uint32_t modifier_count = 1;
-	uint64_t modifier = DRM_FORMAT_MOD_INVALID;
+	uint32_t modifier_count;
+	uint64_t *modifiers = NULL;
 
-	if (cast->ctx->gbm) {
+	if (build_modifierlist(cast, cast->screencopy_dmabuf_frame.fourcc, &modifiers, &modifier_count) && modifier_count > 0) {
 		param_count = 2;
 		params[0] = build_format(b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
 				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
-				&modifier, modifier_count);
+				modifiers, modifier_count);
 		params[1] = build_format(b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 				NULL, 0);
@@ -144,7 +162,7 @@ static uint32_t build_formats(struct spa_pod_builder *b, struct xdpw_screencast_
 				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 				NULL, 0);
 	}
-
+	free(modifiers);
 	return param_count;
 }
 
