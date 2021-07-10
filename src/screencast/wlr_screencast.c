@@ -569,6 +569,20 @@ static void wlr_remove_output(struct xdpw_wlr_output *out) {
 	free(out);
 }
 
+static void linux_dmabuf_handle_modifier(void *data,
+		struct zwp_linux_dmabuf_v1 *zwp_linux_dmabuf_v1,
+		uint32_t format, uint32_t modifier_hi, uint32_t modifier_lo) {
+
+	logprint(TRACE, "wlroots: linux_dmabuf_handle_modifier called");
+
+	logprint(TRACE, "wlroots: format %u (%u)", format, ((((uint64_t)modifier_hi) << 32) | modifier_lo));
+}
+
+static const struct zwp_linux_dmabuf_v1_listener linux_dmabuf_listener = {
+	.format = noop,
+	.modifier = linux_dmabuf_handle_modifier,
+};
+
 static void wlr_registry_handle_add(void *data, struct wl_registry *reg,
 		uint32_t id, const char *interface, uint32_t ver) {
 	struct xdpw_screencast_context *ctx = data;
@@ -613,6 +627,8 @@ static void wlr_registry_handle_add(void *data, struct wl_registry *reg,
 	if (strcmp(interface, zwp_linux_dmabuf_v1_interface.name) == 0) {
 		logprint(DEBUG, "wlroots: |-- registered to interface %s (Version %u)", interface, LINUX_DMABUF_VERSION);
 		ctx->linux_dmabuf = wl_registry_bind(reg, id, &zwp_linux_dmabuf_v1_interface, LINUX_DMABUF_VERSION);
+
+		zwp_linux_dmabuf_v1_add_listener(ctx->linux_dmabuf, &linux_dmabuf_listener, ctx);
 	}
 }
 
