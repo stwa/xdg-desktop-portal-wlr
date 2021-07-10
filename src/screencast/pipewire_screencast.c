@@ -234,14 +234,22 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 
 		struct xdpw_pwr_screencopy_dmabuf_frame *frame = calloc(1,sizeof(struct xdpw_pwr_screencopy_dmabuf_frame));
 
-		uint32_t flags = GBM_BO_USE_RENDERING;
+		if (cast->pwr_format.modifier == DRM_FORMAT_MOD_INVALID) {
+			uint32_t flags = GBM_BO_USE_RENDERING;
 
-		if (cast->ctx->state->config->screencast_conf.force_mod_linear)
-			flags |= GBM_BO_USE_LINEAR;
+			if (cast->ctx->state->config->screencast_conf.force_mod_linear)
+				flags |= GBM_BO_USE_LINEAR;
 
-		frame->bo = gbm_bo_create(cast->ctx->gbm,
-				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height,
-				cast->screencopy_dmabuf_frame.fourcc, flags);
+			frame->bo = gbm_bo_create(cast->ctx->gbm,
+					cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height,
+					cast->screencopy_dmabuf_frame.fourcc, flags);
+		} else {
+			uint64_t *modifiers = (uint64_t*)&cast->pwr_format.modifier;
+
+			frame->bo = gbm_bo_create_with_modifiers(cast->ctx->gbm,
+					cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height,
+					cast->screencopy_dmabuf_frame.fourcc, modifiers, 1);
+		}
 
 		if (frame->bo == NULL) {
 			logprint(ERROR, "wlroots: failed to create gbm_bo");
@@ -249,6 +257,7 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 			return;
 		}
 
+		uint32_t planes = gbm_bo_get_plane_count(frame->bo);
 		struct zwp_linux_buffer_params_v1 *params;
 		params = zwp_linux_dmabuf_v1_create_params(cast->ctx->linux_dmabuf);
 		if (!params) {
@@ -258,21 +267,39 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 			return;
 		}
 
-		uint32_t offset = gbm_bo_get_offset(frame->bo, 0);
-		uint32_t stride = gbm_bo_get_stride(frame->bo);
-		uint64_t mod = gbm_bo_get_modifier(frame->bo);
-		int fd = gbm_bo_get_fd(frame->bo);
+		assert(planes == buffer->buffer->n_datas);
+		for (uint32_t plane = 0; plane < planes; plane++) {
+			uint32_t offset = gbm_bo_get_offset(frame->bo, plane);
+			uint32_t stride = gbm_bo_get_stride_for_plane(frame->bo, plane);
+			uint64_t mod = gbm_bo_get_modifier(frame->bo);
+			int fd = gbm_bo_get_fd_for_plane(frame->bo, plane);
 
-		if (fd < 0) {
-			logprint(ERROR, "wlroots: failed to get file descriptor");
-			zwp_linux_buffer_params_v1_destroy(params);
-			gbm_bo_destroy(frame->bo);
-			free(frame);
-			return;
+			if (fd < 0) {
+				logprint(ERROR, "wlroots: failed to get file descriptor");
+				for (uint32_t prev_plane = 0; prev_plane < plane; prev_plane++) {
+					close(d[prev_plane].fd);
+				}
+				zwp_linux_buffer_params_v1_destroy(params);
+				gbm_bo_destroy(frame->bo);
+				free(frame);
+				return;
+			}
+
+			zwp_linux_buffer_params_v1_add(params, fd, plane, offset, stride,
+				mod >> 32, mod & 0xffffffff);
+
+			d[plane].type = SPA_DATA_DmaBuf;
+			d[plane].maxsize = stride * cast->screencopy_dmabuf_frame.height;
+			d[plane].mapoffset = 0;
+			d[plane].chunk->size = stride * cast->screencopy_dmabuf_frame.height;
+			d[plane].chunk->stride = stride;
+			d[plane].chunk->offset = offset;
+			d[plane].flags = 0;
+			d[plane].fd = fd;
+			d[plane].data = NULL;
 		}
 
-		zwp_linux_buffer_params_v1_add(params, fd, 0, offset, stride,
-			mod >> 32, mod & 0xffffffff);
+
 		frame->buffer = zwp_linux_buffer_params_v1_create_immed(params,
 			cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height,
 			cast->screencopy_dmabuf_frame.fourcc, /* flags */ 0);
@@ -284,16 +311,6 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 			free(frame);
 			return;
 		}
-
-		d[0].type = SPA_DATA_DmaBuf;
-		d[0].maxsize = stride * cast->screencopy_dmabuf_frame.height;
-		d[0].mapoffset = 0;
-		d[0].chunk->size = stride * cast->screencopy_dmabuf_frame.height;
-		d[0].chunk->stride = stride;
-		d[0].chunk->offset = offset;
-		d[0].flags = 0;
-		d[0].fd = fd;
-		d[0].data = NULL;
 
 		buffer->user_data = frame;
 	}
@@ -313,7 +330,9 @@ static void pwr_handle_stream_remove_buffer(void *data, struct pw_buffer *buffer
 		wl_buffer_destroy(((struct xdpw_pwr_screencopy_dmabuf_frame*)buffer->user_data)->buffer);
 		gbm_bo_destroy(((struct xdpw_pwr_screencopy_dmabuf_frame*)buffer->user_data)->bo);
 		free(buffer->user_data);
-		close(d[0].fd);
+		for (uint32_t plane = 0; plane < buffer->buffer->n_datas; plane++) {
+			close(d[plane].fd);
+		}
 		break;
 	default:
 		break;
