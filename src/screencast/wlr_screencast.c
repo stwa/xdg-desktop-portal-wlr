@@ -97,7 +97,7 @@ static void wlr_frame_buffer(void *data, struct zwlr_screencopy_frame_v1 *frame,
 	cast->screencopy_frame.height = height;
 	cast->screencopy_frame.stride = stride;
 	cast->screencopy_frame.size = stride * height;
-	cast->screencopy_frame.format = format;
+	cast->screencopy_frame.format = xdpw_format_drm_fourcc_from_wl_shm(format);
 
 	if (zwlr_screencopy_manager_v1_get_version(cast->ctx->screencopy_manager) < 3) {
 		wlr_frame_buffer_done(cast,frame);
@@ -140,8 +140,8 @@ static void wlr_frame_buffer_done(void *data,
 	// Check if announced screencopy information is compatible with pipewire meta
 	switch (cast->screencopy_type) {
 	case XDPW_SCREENCOPY_SHM:
-		changed = (cast->pwr_format.format != xdpw_format_pw_from_wl_shm(cast->screencopy_frame.format) &&
-			cast->pwr_format.format == xdpw_format_pw_strip_alpha(xdpw_format_pw_from_wl_shm(cast->screencopy_frame.format))) ||
+		changed = (cast->pwr_format.format != xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format) &&
+			cast->pwr_format.format != xdpw_format_pw_strip_alpha(xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format))) ||
 			cast->pwr_format.size.width != cast->screencopy_frame.width ||
 			cast->pwr_format.size.height != cast->screencopy_frame.height;
 		break;
