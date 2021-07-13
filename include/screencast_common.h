@@ -63,7 +63,7 @@ struct xdpw_screencopy_frame {
 	uint32_t height;
 	uint32_t size;
 	uint32_t stride;
-	enum wl_shm_format format;
+	uint32_t format;
 };
 
 struct xdpw_screencopy_dmabuf_frame {
@@ -147,7 +147,7 @@ void randname(char *buf);
 int anonymous_shm_open(void);
 struct wl_buffer *import_wl_shm_buffer(struct xdpw_screencast_instance *cast, int fd,
 	enum wl_shm_format fmt, int width, int height, int stride);
-enum spa_video_format xdpw_format_pw_from_wl_shm(enum wl_shm_format format);
+enum wl_shm_format xdpw_format_wl_shm_from_drm_fourcc(uint32_t format);
 uint32_t xdpw_format_drm_fourcc_from_wl_shm(enum wl_shm_format format);
 enum spa_video_format xdpw_format_pw_from_drm_fourcc(uint32_t format);
 enum spa_video_format xdpw_format_pw_strip_alpha(enum spa_video_format format);
