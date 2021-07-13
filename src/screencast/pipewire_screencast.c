@@ -194,7 +194,7 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 
 		// create wl_buffer
 		struct xdpw_pwr_screencopy_frame *frame = calloc(1,sizeof(struct xdpw_pwr_screencopy_frame));
-		frame->buffer = import_wl_shm_buffer(cast, d[0].fd, cast->screencopy_frame.format,
+		frame->buffer = import_wl_shm_buffer(cast, d[0].fd, xdpw_format_wl_shm_from_drm_fourcc(cast->screencopy_frame.format),
 			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->screencopy_frame.stride);
 		buffer->user_data = frame;
 	}
@@ -304,7 +304,7 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 		SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[1];
 
-	enum spa_video_format format = xdpw_format_pw_from_wl_shm(cast->screencopy_frame.format);
+	enum spa_video_format format = xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format);
 
 	params[0] = build_format(&b, format,
 			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate);
@@ -334,7 +334,7 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 	}
 	cast->pwr_stream_state = false;
 
-	enum spa_video_format format = xdpw_format_pw_from_wl_shm(cast->screencopy_frame.format);
+	enum spa_video_format format = xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format);
 
 	const struct spa_pod *param = build_format(&b, format,
 			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate);
