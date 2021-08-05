@@ -25,6 +25,7 @@ struct xdpw_wlr_output *xdpw_wlr_output_find(struct xdpw_screencast_context *ctx
 struct xdpw_wlr_output *xdpw_wlr_output_chooser(struct xdpw_screencast_context *ctx);
 
 void xdpw_wlr_frame_free(struct xdpw_screencast_instance *cast);
+void xdpw_wlr_frame_start(struct xdpw_screencast_instance *cast);
 void xdpw_wlr_register_cb(struct xdpw_screencast_instance *cast);
 
 #endif
