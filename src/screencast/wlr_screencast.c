@@ -39,14 +39,29 @@ void xdpw_wlr_frame_free(struct xdpw_screencast_instance *cast) {
 			cast->copied = false;
 			if (delay_ns > 0) {
 				xdpw_add_timer(cast->ctx->state, delay_ns,
-					(xdpw_event_loop_timer_func_t) xdpw_wlr_register_cb, cast);
+					(xdpw_event_loop_timer_func_t) xdpw_wlr_frame_start, cast);
 			} else {
-				xdpw_wlr_register_cb(cast);
+				xdpw_wlr_frame_start(cast);
 			}
 		} else {
-				xdpw_wlr_register_cb(cast);
+				xdpw_wlr_frame_start(cast);
 		}
 	}
+}
+
+void xdpw_wlr_frame_start(struct xdpw_screencast_instance *cast) {
+	logprint(TRACE, "wlroots: start screencopy");
+	if (cast->pwr_stream_state) {
+		xdpw_pwr_dequeue_buffer(cast);
+
+		if (!cast->simple_frame.current_pw_buffer) {
+			logprint(WARN, "wlroots: failed to dequeue buffer");
+			cast->need_buffer = true;
+			return;
+		}
+	}
+
+	xdpw_wlr_register_cb(cast);
 }
 
 static void wlr_frame_linux_dmabuf(void *data,
@@ -60,12 +75,7 @@ static void wlr_frame_buffer_done(void *data,
 	struct xdpw_screencast_instance *cast = data;
 
 	logprint(TRACE, "wlroots: buffer_done event handler");
-	if (cast->pwr_stream_state) {
-		xdpw_pwr_dequeue_buffer(cast);
-	}
-
-	if (!cast->simple_frame.current_pw_buffer) {
-		logprint(WARN, "wlroots: failed to dequeue buffer");
+	if (!cast->pwr_stream_state) {
 		xdpw_wlr_frame_free(cast);
 		return;
 	}
