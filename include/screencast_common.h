@@ -91,6 +91,7 @@ struct xdpw_screencast_instance {
 	struct xdpw_frame simple_frame;
 
 	// pipewire
+	struct spa_source *event;
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 	struct spa_video_info_raw pwr_format;

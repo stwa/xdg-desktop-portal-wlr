@@ -44,6 +44,17 @@ static struct spa_pod *build_format(struct spa_pod_builder *b, enum spa_video_fo
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
+static void pwr_on_event(void *data, uint64_t expirations) {
+	struct xdpw_screencast_instance *cast = data;
+
+	logprint(TRACE, "pipewire: stream on process");
+
+	if (cast->need_buffer) {
+		cast->need_buffer = false;
+		xdpw_wlr_frame_start(cast);
+	}
+}
+
 static void pwr_handle_stream_process(void *data) {
 	struct xdpw_screencast_instance *cast = data;
 
@@ -276,6 +287,11 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 		abort();
 	}
 	cast->pwr_stream_state = false;
+
+	/* make an event to signal frame ready */
+	cast->event =
+		pw_loop_add_event(state->pw_loop, pwr_on_event, cast);
+	logprint(DEBUG, "pipewire: registered event %p", cast->event);
 
 	enum spa_video_format format = xdpw_format_pw_from_wl_shm(cast->screencopy_frame.format);
 

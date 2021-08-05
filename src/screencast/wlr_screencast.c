@@ -57,6 +57,8 @@ void xdpw_wlr_frame_start(struct xdpw_screencast_instance *cast) {
 		if (!cast->simple_frame.current_pw_buffer) {
 			logprint(WARN, "wlroots: failed to dequeue buffer");
 			cast->need_buffer = true;
+			// HACK: Don't rely on pipewire to notice on available buffers
+			pw_loop_signal_event(cast->ctx->state->pw_loop, cast->event);
 			return;
 		}
 	}
