@@ -165,20 +165,32 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 	spa_format_video_raw_parse(param, &cast->pwr_format);
 	cast->framerate = (uint32_t)(cast->pwr_format.max_framerate.num / cast->pwr_format.max_framerate.denom);
 
-	if (spa_pod_find_prop(param, NULL, SPA_FORMAT_VIDEO_modifier) == NULL) {
+	const struct spa_pod_prop *prop_modifier;
+	if ((prop_modifier = spa_pod_find_prop(param, NULL, SPA_FORMAT_VIDEO_modifier)) == NULL) {
 		cast->screencopy_type = XDPW_SCREENCOPY_SHM;
 		blocks = 1;
 		size = cast->screencopy_frame.size;
 		stride = cast->screencopy_frame.stride;
 		buffertypes = (1<<SPA_DATA_MemFd);
 	} else {
-		if (cast->pwr_format.modifier != DRM_FORMAT_MOD_INVALID)
-			abort();
 		cast->screencopy_type = XDPW_SCREENCOPY_DMABUF;
-		blocks = 1;
-		size = 0;
-		stride = 0;
 		buffertypes = (1<<SPA_DATA_DmaBuf);
+		if ((prop_modifier->flags & SPA_POD_PROP_FLAG_DONT_FIXATE) > 0) {
+
+			// TODO: fixate
+			abort();
+		}
+
+		if (cast->pwr_format.modifier == DRM_FORMAT_MOD_INVALID) {
+			blocks = 1;
+			size = 0;
+			stride = 0;
+		} else {
+			blocks = gbm_device_get_format_modifier_plane_count(cast->ctx->gbm,
+				xdpw_format_drm_fourcc_from_pw(cast->pwr_format.format), cast->pwr_format.modifier);
+			size = 0;
+			stride = 0;
+		}
 	}
 
 	params[0] = build_buffer(&b, blocks, size, stride, buffertypes);
