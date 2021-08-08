@@ -65,6 +65,44 @@ static struct spa_pod *build_buffer(struct spa_pod_builder *b, uint32_t blocks, 
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
+static struct spa_pod *fixate_format(struct spa_pod_builder *b, enum spa_video_format format,
+		uint32_t width, uint32_t height, uint32_t framerate, uint64_t *modifier)
+{
+	struct spa_pod_frame f[1];
+
+	enum spa_video_format format_without_alpha = xdpw_format_pw_strip_alpha(format);
+
+	spa_pod_builder_push_object(b, &f[0], SPA_TYPE_OBJECT_Format, SPA_PARAM_EnumFormat);
+	spa_pod_builder_add(b, SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video), 0);
+	spa_pod_builder_add(b, SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), 0);
+	/* format */
+	if (format_without_alpha == SPA_VIDEO_FORMAT_UNKNOWN) {
+		spa_pod_builder_add(b, SPA_FORMAT_VIDEO_format, SPA_POD_Id(format), 0);
+	} else {
+		spa_pod_builder_add(b, SPA_FORMAT_VIDEO_format,
+				SPA_POD_CHOICE_ENUM_Id(3, format, format, format_without_alpha), 0);
+	}
+	/* modifiers */
+	if (modifier) {
+		// implicit modifier
+		spa_pod_builder_prop(b, SPA_FORMAT_VIDEO_modifier, SPA_POD_PROP_FLAG_MANDATORY);
+		spa_pod_builder_long(b, *modifier);
+	}
+	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_size,
+		SPA_POD_Rectangle(&SPA_RECTANGLE(width, height)),
+		0);
+	// variable framerate
+	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_framerate,
+		SPA_POD_Fraction(&SPA_FRACTION(0, 1)), 0);
+	spa_pod_builder_add(b, SPA_FORMAT_VIDEO_maxFramerate,
+		SPA_POD_CHOICE_RANGE_Fraction(
+			&SPA_FRACTION(framerate, 1),
+			&SPA_FRACTION(1, 1),
+			&SPA_FRACTION(framerate, 1)),
+		0);
+	return spa_pod_builder_pop(b, &f[0]);
+}
+
 static struct spa_pod *build_format(struct spa_pod_builder *b, enum spa_video_format format,
 		uint32_t width, uint32_t height, uint32_t framerate,
 		uint64_t *modifiers, int modifier_count)
