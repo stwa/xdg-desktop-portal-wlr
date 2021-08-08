@@ -184,7 +184,7 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b =
 		SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	const struct spa_pod *params[2];
+	const struct spa_pod *params[3];
 	uint32_t blocks;
 	uint32_t data_type;
 
@@ -201,8 +201,56 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 		data_type = 1<<SPA_DATA_DmaBuf;
 		assert(cast->pwr_format.format == xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame_info[DMABUF].format));
 		if ((prop_modifier->flags & SPA_POD_PROP_FLAG_DONT_FIXATE) > 0) {
-			// TODO: fixate
+			const struct spa_pod *pod_modifier = &prop_modifier->value;
+
+			uint32_t n_modifiers = SPA_POD_CHOICE_N_VALUES(pod_modifier) - 1;
+			uint64_t *modifiers = SPA_POD_CHOICE_VALUES(pod_modifier);
+			modifiers++;
+			uint32_t flags = GBM_BO_USE_RENDERING;
+			uint64_t modifier;
+
+			struct gbm_bo *bo = gbm_bo_create_with_modifiers2(cast->ctx->gbm,
+				cast->screencopy_frame_info[cast->buffer_type].width, cast->screencopy_frame_info[cast->buffer_type].height,
+				cast->screencopy_frame_info[cast->buffer_type].format, modifiers, n_modifiers, flags);
+			if (bo) {
+				modifier = gbm_bo_get_modifier(bo);
+				gbm_bo_destroy(bo);
+				goto fixate_format;
+			}
+
+			logprint(INFO, "pipewire: unable to allocate a dmabuf with modifiers. Falling back to the old api");
+			for (uint32_t i = 0; i < n_modifiers; i++) {
+				switch (modifiers[i]) {
+				case DRM_FORMAT_MOD_INVALID:
+					modifiers = NULL;
+					n_modifiers = 0;
+					flags = GBM_BO_USE_RENDERING;
+					break;
+				default:
+					continue;
+				}
+				bo = gbm_bo_create_with_modifiers2(cast->ctx->gbm,
+					cast->screencopy_frame_info[cast->buffer_type].width, cast->screencopy_frame_info[cast->buffer_type].height,
+					cast->screencopy_frame_info[cast->buffer_type].format, modifiers, n_modifiers, flags);
+				if (bo) {
+					modifier = gbm_bo_get_modifier(bo);
+					gbm_bo_destroy(bo);
+					goto fixate_format;
+				}
+			}
+
+			logprint(ERROR, "pipewire: unable to allocate a dmabuf");
 			abort();
+
+fixate_format:
+			params[0] = fixate_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame_info[cast->buffer_type].format),
+					cast->screencopy_frame_info[cast->buffer_type].width, cast->screencopy_frame_info[cast->buffer_type].height, cast->framerate, &modifier);
+
+			uint32_t n_params = build_formats(&b, cast, &params[1]);
+			n_params++;
+
+			pw_stream_update_params(stream, params, n_params);
+			return;
 		}
 
 		if (cast->pwr_format.modifier == DRM_FORMAT_MOD_INVALID) {
