@@ -190,7 +190,7 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 	uint8_t params_buffer[1024];
 	struct spa_pod_builder b =
 		SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
-	const struct spa_pod *params[2];
+	const struct spa_pod *params[3];
 	int blocks;
 	int size;
 	int stride;
@@ -214,9 +214,34 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 		cast->screencopy_type = XDPW_SCREENCOPY_DMABUF;
 		buffertypes = (1<<SPA_DATA_DmaBuf);
 		if ((prop_modifier->flags & SPA_POD_PROP_FLAG_DONT_FIXATE) > 0) {
+			const struct spa_pod *pod_modifier = &prop_modifier->value;
 
-			// TODO: fixate
-			abort();
+			uint32_t n_modifiers = SPA_POD_CHOICE_N_VALUES(pod_modifier);
+			uint64_t *modifiers = SPA_POD_CHOICE_VALUES(pod_modifier);
+			uint64_t modifier;
+			if (n_modifiers == 1 && modifiers[0] == DRM_FORMAT_MOD_INVALID) {
+				modifier = modifiers[0];
+			} else {
+				struct gbm_bo *bo = gbm_bo_create_with_modifiers(cast->ctx->gbm,
+						cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height,
+						cast->screencopy_dmabuf_frame.fourcc, modifiers, n_modifiers);
+				modifier = gbm_bo_get_modifier(bo);
+				gbm_bo_destroy(bo);
+			}
+
+			params[0] = fixate_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
+					cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate, &modifier);
+
+			params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
+					cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
+					&modifiers[1], n_modifiers);
+
+			params[2] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
+					cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
+					NULL, 0);
+
+			pw_stream_update_params(stream, params, 3);
+			return;
 		}
 
 		if (cast->pwr_format.modifier == DRM_FORMAT_MOD_INVALID) {
