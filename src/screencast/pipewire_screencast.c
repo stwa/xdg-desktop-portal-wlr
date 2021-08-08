@@ -151,7 +151,8 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 	spa_format_video_raw_parse(param, &cast->pwr_format);
 	cast->framerate = (uint32_t)(cast->pwr_format.max_framerate.num / cast->pwr_format.max_framerate.denom);
 
-	if (spa_pod_find_prop(param, NULL, SPA_FORMAT_VIDEO_modifier) == NULL) {
+	const struct spa_pod_prop *prop_modifier = spa_pod_find_prop(param, NULL, SPA_FORMAT_VIDEO_modifier);
+	if (prop_modifier == NULL) {
 		assert(false && "We didn't announce shm");
 		cast->screencopy_type = XDPW_SCREENCOPY_SHM;
 		blocks = 1;
@@ -159,13 +160,27 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 		stride = cast->screencopy_frame.stride;
 		buffertypes = (1<<SPA_DATA_MemFd);
 	} else {
-		if (cast->pwr_format.modifier != DRM_FORMAT_MOD_INVALID)
-			abort();
 		cast->screencopy_type = XDPW_SCREENCOPY_DMABUF;
-		blocks = 1;
-		size = 0;
-		stride = 0;
 		buffertypes = (1<<SPA_DATA_DmaBuf);
+		const struct spa_pod *pod_modifier = &prop_modifier->value;
+		if (SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Choice) {
+
+			// TODO: fixate
+			abort();
+		} else if (SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Long) {
+			if (cast->pwr_format.modifier == DRM_FORMAT_MOD_INVALID) {
+				blocks = 1;
+				size = 0;
+				stride = 0;
+			} else {
+				blocks = gbm_device_get_format_modifier_plane_count(cast->ctx->gbm,
+					xdpw_format_drm_fourcc_from_pw(cast->pwr_format.format), cast->pwr_format.modifier);
+				size = 0;
+				stride = 0;
+			}
+		} else {
+			abort();
+		}
 	}
 
 	params[0] = build_buffer(&b, blocks, size, stride, buffertypes);
