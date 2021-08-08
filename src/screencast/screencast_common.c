@@ -135,6 +135,31 @@ uint32_t xdpw_format_drm_fourcc_from_wl_shm(enum wl_shm_format format) {
 	}
 }
 
+uint32_t xdpw_format_drm_fourcc_from_pw(enum spa_video_format format) {
+	switch (format) {
+	case SPA_VIDEO_FORMAT_BGRA:
+		return DRM_FORMAT_ARGB8888;
+	case SPA_VIDEO_FORMAT_BGRx:
+		return DRM_FORMAT_XRGB8888;
+	case SPA_VIDEO_FORMAT_ABGR:
+		return DRM_FORMAT_RGBA8888;
+	case SPA_VIDEO_FORMAT_xBGR:
+		return DRM_FORMAT_RGBX8888;
+	case SPA_VIDEO_FORMAT_RGBA:
+		return DRM_FORMAT_ABGR8888;
+	case SPA_VIDEO_FORMAT_RGBx:
+		return DRM_FORMAT_XBGR8888;
+	case SPA_VIDEO_FORMAT_ARGB:
+		return DRM_FORMAT_BGRA8888;
+	case SPA_VIDEO_FORMAT_xRGB:
+		return DRM_FORMAT_BGRX8888;
+	case SPA_VIDEO_FORMAT_NV12:
+		return DRM_FORMAT_NV12;
+	default:
+		abort();
+	}
+}
+
 enum spa_video_format xdpw_format_pw_from_drm_fourcc(uint32_t format) {
 	switch (format) {
 	case DRM_FORMAT_ARGB8888:
