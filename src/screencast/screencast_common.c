@@ -63,8 +63,7 @@ bool wlr_query_dmabuf_modifiers(struct xdpw_screencast_context *ctx, uint32_t dr
 		*max_modifiers = 0;
 		wl_list_for_each(fm_pair, &ctx->format_modifier_pairs, link) {
 			if (fm_pair->fourcc == drm_format &&
-					(fm_pair->modifier == DRM_FORMAT_MOD_INVALID ||
-					gbm_device_get_format_modifier_plane_count(ctx->gbm, fm_pair->fourcc, fm_pair->modifier) > 0))
+					(gbm_device_get_format_modifier_plane_count(ctx->gbm, fm_pair->fourcc, fm_pair->modifier) > 1))
 				*max_modifiers += 1;
 		}
 		return true;
@@ -75,8 +74,7 @@ bool wlr_query_dmabuf_modifiers(struct xdpw_screencast_context *ctx, uint32_t dr
 		if (i == num_modifiers)
 			break;
 		if (fm_pair->fourcc == drm_format &&
-				(fm_pair->modifier == DRM_FORMAT_MOD_INVALID ||
-				gbm_device_get_format_modifier_plane_count(ctx->gbm, fm_pair->fourcc, fm_pair->modifier) > 0)) {
+				(gbm_device_get_format_modifier_plane_count(ctx->gbm, fm_pair->fourcc, fm_pair->modifier) > 1)) {
 			modifiers[i] = fm_pair->modifier;
 			i++;
 		}
