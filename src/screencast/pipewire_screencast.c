@@ -152,6 +152,7 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 	cast->framerate = (uint32_t)(cast->pwr_format.max_framerate.num / cast->pwr_format.max_framerate.denom);
 
 	if (spa_pod_find_prop(param, NULL, SPA_FORMAT_VIDEO_modifier) == NULL) {
+		assert(false && "We didn't announce shm");
 		cast->screencopy_type = XDPW_SCREENCOPY_SHM;
 		blocks = 1;
 		size = cast->screencopy_frame.size;
@@ -199,6 +200,7 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 	logprint(TRACE, "pipewire: selected buffertype %u", d[0].type);
 	// Prepare buffer for choosen type
 	if (d[0].type == SPA_DATA_MemFd) {
+		assert(false && "We didn't announce shm");
 		assert(cast->screencopy_type == XDPW_SCREENCOPY_SHM);
 
 		d[0].maxsize = cast->screencopy_frame.size;
@@ -419,12 +421,12 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 	params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
 			cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
 			&modifier, 1);
-
+	/*
 	params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 			NULL, 0);
-
-	pw_stream_update_params(stream, params, 2);
+	*/
+	pw_stream_update_params(stream, params, 1);
 }
 
 void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
@@ -460,9 +462,11 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 			cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
 			&modifier, 1);
 
+	/*
 	params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 			NULL, 0);
+	*/
 
 	pw_stream_add_listener(cast->stream, &cast->stream_listener,
 		&pwr_stream_events, cast);
@@ -472,7 +476,7 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 		PW_ID_ANY,
 		(PW_STREAM_FLAG_DRIVER |
 			PW_STREAM_FLAG_ALLOC_BUFFERS),
-		params, 2);
+		params, 1);
 }
 
 void xdpw_pwr_stream_destroy(struct xdpw_screencast_instance *cast) {
