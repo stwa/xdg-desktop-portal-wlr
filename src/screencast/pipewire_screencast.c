@@ -463,12 +463,14 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
 				modifiers, 1);
 
+		/*
 		params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 				NULL, 0);
-
-		pw_stream_update_params(stream, params, 2);
+		*/
+		pw_stream_update_params(stream, params, 1);
 	} else {
+		assert(false && "We want modifiers for this test");
 		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 				NULL, 0);
@@ -511,15 +513,18 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 	uint64_t *modifiers = NULL;
 
 	if (build_modifierlist(cast, cast->screencopy_dmabuf_frame.fourcc, &modifiers, &modifier_count) && modifier_count > 0) {
-		param_count = 2;
+		param_count = 1;
 		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
 				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
 				modifiers, 1);
 
+		/*
 		params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 				NULL, 0);
+		*/
 	} else {
+		assert(false && "We want modifiers for this test");
 		param_count = 1;
 		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
