@@ -182,12 +182,12 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 		buffertypes = (1<<SPA_DATA_DmaBuf);
 		const struct spa_pod *pod_modifier = &prop_modifier->value;
 		logprint(DEBUG, "still alive");
-		if (SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Choice && SPA_POD_CHOICE_N_VALUES(pod_modifier) > 1) {
+		if (false && SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Choice && SPA_POD_CHOICE_N_VALUES(pod_modifier) > 1) {
 			logprint(DEBUG, "wrong case");
 
 			// TODO: fixate
 			abort();
-		} else if (SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Long ||
+		} else if (true || SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Long ||
 				(SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Choice && SPA_POD_CHOICE_N_VALUES(pod_modifier) == 1)) {
 			logprint(DEBUG, "right case");
 			if (cast->pwr_format.modifier == DRM_FORMAT_MOD_INVALID) {
@@ -433,9 +433,11 @@ void xdpw_pwr_enqueue_buffer(struct xdpw_screencast_instance *cast) {
 	}
 
 	logprint(TRACE, "********************");
-	logprint(TRACE, "pipewire: fd %u", d[0].fd);
-	logprint(TRACE, "pipewire: size %d", d[0].maxsize);
-	logprint(TRACE, "pipewire: stride %d", d[0].chunk->stride);
+	for (uint32_t plane = 0; plane < pw_buf->buffer->n_datas; plane++) {
+		logprint(TRACE, "pipewire: fd %u", d[plane].fd);
+		logprint(TRACE, "pipewire: size %d", d[plane].maxsize);
+		logprint(TRACE, "pipewire: stride %d", d[plane].chunk->stride);
+	}
 	logprint(TRACE, "pipewire: width %d", cast->screencopy_frame.width);
 	logprint(TRACE, "pipewire: height %d", cast->screencopy_frame.height);
 	logprint(TRACE, "pipewire: y_invert %d", cast->simple_frame.y_invert);
