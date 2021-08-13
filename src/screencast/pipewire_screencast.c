@@ -163,11 +163,15 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 		cast->screencopy_type = XDPW_SCREENCOPY_DMABUF;
 		buffertypes = (1<<SPA_DATA_DmaBuf);
 		const struct spa_pod *pod_modifier = &prop_modifier->value;
-		if (SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Choice) {
+		logprint(DEBUG, "still alive");
+		if (SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Choice && SPA_POD_CHOICE_N_VALUES(pod_modifier) > 1) {
+			logprint(DEBUG, "wrong case");
 
 			// TODO: fixate
 			abort();
-		} else if (SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Long) {
+		} else if (SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Long ||
+				(SPA_POD_TYPE(pod_modifier) == SPA_TYPE_Choice && SPA_POD_CHOICE_N_VALUES(pod_modifier) == 1)) {
+			logprint(DEBUG, "right case");
 			if (cast->pwr_format.modifier == DRM_FORMAT_MOD_INVALID) {
 				blocks = 1;
 				size = 0;
@@ -179,6 +183,7 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 				stride = 0;
 			}
 		} else {
+			logprint(DEBUG, "realy wrong case");
 			abort();
 		}
 	}
