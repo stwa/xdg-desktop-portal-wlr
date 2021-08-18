@@ -13,6 +13,35 @@
 #include "xdpw.h"
 #include "logger.h"
 
+static bool pwr_y_invert_buffer(struct pw_buffer *buffer) {
+	uint32_t N;
+	struct spa_data *d = buffer->buffer->datas;
+	void *tmp_buffer = malloc(d->chunk->stride);
+	if (!tmp_buffer) {
+		return false;
+	}
+	void *data = mmap(NULL, d[0].maxsize, PROT_READ | PROT_WRITE, MAP_SHARED,
+			d[0].fd, d[0].mapoffset);
+	if (!data) {
+		free(tmp_buffer);
+		return false;
+	}
+	uint32_t height = d->chunk->size / d->chunk->stride;
+	if (height%2) {
+		N = (height-1)/2;
+	} else {
+		N = height/2;
+	}
+	for (uint32_t i = 0; i < N; i++) {
+		memcpy(tmp_buffer, (data + i * d->chunk->stride), d->chunk->stride);
+		memcpy((data + i * d->chunk->stride), (data + (height - 1 - i) * d->chunk->stride), d->chunk->stride);
+		memcpy((data + (height - 1 - i) * d->chunk->stride), tmp_buffer, d->chunk->stride);
+	}
+	munmap(data, d->maxsize);
+	free(tmp_buffer);
+	return true;
+}
+
 static struct spa_pod *build_format(struct spa_pod_builder *b, enum spa_video_format format,
 		uint32_t width, uint32_t height, uint32_t framerate) {
 	struct spa_pod_frame f[1];
@@ -226,7 +255,9 @@ void xdpw_pwr_enqueue_buffer(struct xdpw_screencast_instance *cast) {
 	}
 
 	if (cast->current_frame.y_invert) {
-		//TODO: Flip buffer or set stride negative
+		if (!pwr_y_invert_buffer(pw_buf)) {
+			d[0].chunk->flags = SPA_CHUNK_FLAG_CORRUPTED;
+		}
 	}
 
 	logprint(TRACE, "********************");
