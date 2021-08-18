@@ -219,6 +219,12 @@ void xdpw_pwr_enqueue_buffer(struct xdpw_screencast_instance *cast) {
 		h->dts_offset = 0;
 	}
 
+	if (cast->frame_state == XDPW_FRAME_STATE_SUCCESS) {
+		d[0].chunk->flags = SPA_CHUNK_FLAG_NONE;
+	} else {
+		d[0].chunk->flags = SPA_CHUNK_FLAG_CORRUPTED;
+	}
+
 	if (cast->current_frame.y_invert) {
 		//TODO: Flip buffer or set stride negative
 	}
