@@ -36,8 +36,10 @@ void xdpw_wlr_frame_finish(struct xdpw_screencast_instance *cast) {
 		return;
 	}
 
-	xdpw_pwr_enqueue_buffer(cast);
-
+	// Check if we have a buffer
+	if (cast->current_frame.current_pw_buffer) {
+		xdpw_pwr_enqueue_buffer(cast);
+	}
 
 	if (cast->frame_state == XDPW_FRAME_STATE_RENEG) {
 		pwr_update_stream_param(cast);
@@ -73,9 +75,7 @@ void xdpw_wlr_frame_start(struct xdpw_screencast_instance *cast) {
 
 		if (!cast->current_frame.current_pw_buffer) {
 			logprint(WARN, "wlroots: failed to dequeue buffer");
-			cast->need_buffer = true;
-			pw_loop_signal_event(cast->ctx->state->pw_loop, cast->event);
-			return;
+			// TODO: wait for next frame
 		}
 	}
 
@@ -118,6 +118,15 @@ static void wlr_frame_buffer_done(void *data,
 	if (!cast->pwr_stream_state) {
 		xdpw_wlr_frame_finish(cast);
 		return;
+	}
+
+	// If we don't have a buffer, try again
+	if (!cast->current_frame.current_pw_buffer) {
+		xdpw_pwr_dequeue_buffer(cast);
+		if (!cast->current_frame.current_pw_buffer) {
+			xdpw_wlr_frame_finish(cast);
+			return;
+		}
 	}
 
 	// Check if announced screencopy information is compatible with pipewire meta
