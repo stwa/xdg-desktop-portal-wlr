@@ -99,7 +99,6 @@ struct xdpw_screencast_instance {
 	enum xdpw_frame_state frame_state;
 
 	// pipewire
-	struct spa_source *event;
 	struct pw_stream *stream;
 	struct spa_hook stream_listener;
 	struct spa_video_info_raw pwr_format;
@@ -107,7 +106,6 @@ struct xdpw_screencast_instance {
 	uint32_t node_id;
 	bool pwr_stream_state;
 	uint32_t framerate;
-	bool need_buffer;
 
 	// wlroots
 	struct zwlr_screencopy_frame_v1 *frame_callback;
