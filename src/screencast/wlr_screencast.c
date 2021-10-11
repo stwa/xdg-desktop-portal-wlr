@@ -35,6 +35,7 @@ void xdpw_wlr_frame_finish(struct xdpw_screencast_instance *cast) {
 	wlr_frame_free(cast);
 
 	if (!cast->pwr_stream_state) {
+		cast->current_frame.current_pw_buffer = NULL;
 		return;
 	}
 
