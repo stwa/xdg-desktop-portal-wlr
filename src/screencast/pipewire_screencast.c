@@ -507,7 +507,9 @@ void xdpw_pwr_enqueue_buffer(struct xdpw_screencast_instance *cast) {
 	}
 
 	if (cast->current_frame.y_invert) {
-		if (!pwr_y_invert_buffer(pw_buf)) {
+		if (cast->screencopy_type != XDPW_SCREENCOPY_SHM) {
+			d[0].chunk->flags = SPA_CHUNK_FLAG_CORRUPTED;
+		} else if (!pwr_y_invert_buffer(pw_buf)) {
 			d[0].chunk->flags = SPA_CHUNK_FLAG_CORRUPTED;
 		}
 	}
