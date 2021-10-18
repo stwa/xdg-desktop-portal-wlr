@@ -116,7 +116,7 @@ static struct spa_pod *build_format(struct spa_pod_builder *b, enum spa_video_fo
 	spa_pod_builder_add(b, SPA_FORMAT_mediaType, SPA_POD_Id(SPA_MEDIA_TYPE_video), 0);
 	spa_pod_builder_add(b, SPA_FORMAT_mediaSubtype, SPA_POD_Id(SPA_MEDIA_SUBTYPE_raw), 0);
 	/* format */
-	if (format_without_alpha == SPA_VIDEO_FORMAT_UNKNOWN) {
+	if (modifier_count > 0 || format_without_alpha == SPA_VIDEO_FORMAT_UNKNOWN) {
 		spa_pod_builder_add(b, SPA_FORMAT_VIDEO_format, SPA_POD_Id(format), 0);
 	} else {
 		spa_pod_builder_add(b, SPA_FORMAT_VIDEO_format,
