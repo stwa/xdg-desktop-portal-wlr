@@ -536,11 +536,14 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 	struct spa_pod_builder b =
 		SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[2];
+	uint32_t n_params;
+
 
 	uint32_t modifier_count;
 	uint64_t *modifiers = NULL;
 
 	if (build_modifierlist(cast, cast->screencopy_dmabuf_frame.fourcc, &modifiers, &modifier_count) && modifier_count > 0) {
+		n_params = 2;
 		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
 				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
 				modifiers, 1);
@@ -548,15 +551,14 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 		params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 				NULL, 0);
-
-		pw_stream_update_params(stream, params, 2);
 	} else {
+		n_params = 1;
 		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 				NULL, 0);
-
-		pw_stream_update_params(stream, params, 1);
 	}
+
+	pw_stream_update_params(stream, params, n_params);
 	free(modifiers);
 }
 
