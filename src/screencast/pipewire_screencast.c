@@ -3,6 +3,7 @@
 #include <gbm.h>
 #include <pipewire/pipewire.h>
 #include <spa/utils/result.h>
+#include <spa/debug/format.h>
 #include <spa/param/props.h>
 #include <spa/param/format-utils.h>
 #include <spa/param/video/format-utils.h>
@@ -213,6 +214,7 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 	if (!param || id != SPA_PARAM_Format) {
 		return;
 	}
+	spa_debug_format(4, NULL, param);
 
 	spa_format_video_raw_parse(param, &cast->pwr_format);
 	cast->framerate = (uint32_t)(cast->pwr_format.max_framerate.num / cast->pwr_format.max_framerate.denom);
@@ -229,6 +231,7 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 		buffertypes = (1<<SPA_DATA_DmaBuf);
 		if ((prop_modifier->flags & SPA_POD_PROP_FLAG_DONT_FIXATE) > 0) {
 			const struct spa_pod *pod_modifier = &prop_modifier->value;
+			logprint(DEBUG, "pipewire: fixating format");
 
 			uint32_t n_modifiers = SPA_POD_CHOICE_N_VALUES(pod_modifier) - 1;
 			uint64_t *modifiers = SPA_POD_CHOICE_VALUES(pod_modifier);
@@ -254,6 +257,11 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 			params[2] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 					cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
 					NULL, 0);
+
+			logprint(DEBUG, "pipewire: announced EnumFormats");
+			for (unsigned int i=0; i < 3; i++) {
+				spa_debug_format(4, NULL, params[i]);
+			}
 
 			pw_stream_update_params(stream, params, 3);
 			return;
@@ -541,10 +549,16 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 
 	uint32_t n_params = build_formats(&b, cast, params);
 
+	logprint(DEBUG, "pipewire: announced EnumFormats");
+	for (unsigned int i=0; i < n_params; i++) {
+		spa_debug_format(4, NULL, params[i]);
+	}
+
 	pw_stream_update_params(stream, params, n_params);
 }
 
 void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
+	logprint(DEBUG, "pipewire: creating stream");
 	struct xdpw_screencast_context *ctx = cast->ctx;
 	struct xdpw_state *state = ctx->state;
 
@@ -568,6 +582,11 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 	cast->pwr_stream_state = false;
 
 	uint32_t param_count = build_formats(&b, cast, params);
+
+	logprint(DEBUG, "pipewire: announced EnumFormats");
+	for (unsigned int i=0; i < param_count; i++) {
+		spa_debug_format(4, NULL, params[i]);
+	}
 
 	pw_stream_add_listener(cast->stream, &cast->stream_listener,
 		&pwr_stream_events, cast);
