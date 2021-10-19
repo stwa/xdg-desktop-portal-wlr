@@ -237,8 +237,9 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 			const struct spa_pod *pod_modifier = &prop_modifier->value;
 			logprint(DEBUG, "pipewire: fixating format");
 
-			uint32_t n_modifiers = SPA_POD_CHOICE_N_VALUES(pod_modifier);
+			uint32_t n_modifiers = SPA_POD_CHOICE_N_VALUES(pod_modifier) - 1;
 			uint64_t *modifiers = SPA_POD_CHOICE_VALUES(pod_modifier);
+			modifiers++;
 			uint64_t modifier;
 			if (n_modifiers == 1 && modifiers[0] == DRM_FORMAT_MOD_INVALID) {
 				modifier = modifiers[0];
@@ -554,7 +555,7 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 		n_params = 2;
 		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
 				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
-				modifiers, 1);
+				modifiers, modifier_count);
 
 		params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
@@ -607,7 +608,7 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 		param_count = 2;
 		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
 				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
-				modifiers, 1);
+				modifiers, modifier_count);
 
 		params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
 				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
