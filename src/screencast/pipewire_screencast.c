@@ -599,7 +599,7 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 	}
 	cast->pwr_stream_state = false;
 
-	int param_count;
+	uint32_t param_count;
 	uint32_t modifier_count;
 	uint64_t *modifiers = NULL;
 
