@@ -85,6 +85,18 @@ static struct spa_pod *build_format(struct spa_pod_builder *b, enum spa_video_fo
 	return spa_pod_builder_pop(b, &f[0]);
 }
 
+static uint32_t build_formats(struct spa_pod_builder *b, struct xdpw_screencast_instance *cast, const struct spa_pod **params) {
+
+	uint32_t param_count;
+
+	param_count = 1;
+	params[0] = build_format(b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
+			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
+			NULL, 0);
+
+	return param_count;
+}
+
 static void pwr_handle_stream_process(void *data) {
 	struct xdpw_screencast_instance *cast = data;
 
@@ -388,13 +400,9 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 		SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[1];
 
-	enum spa_video_format format = xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format);
+	uint32_t n_params = build_formats(&b, cast, params);
 
-	params[0] = build_format(&b, format,
-			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
-			NULL, 0);
-
-	pw_stream_update_params(stream, params, 1);
+	pw_stream_update_params(stream, params, n_params);
 }
 
 void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
@@ -405,6 +413,7 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 
 	uint8_t buffer[1024];
 	struct spa_pod_builder b = SPA_POD_BUILDER_INIT(buffer, sizeof(buffer));
+	const struct spa_pod *params[1];
 
 	char name[] = "xdpw-stream-XXXXXX";
 	randname(name + strlen(name) - 6);
@@ -419,11 +428,7 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 	}
 	cast->pwr_stream_state = false;
 
-	enum spa_video_format format = xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format);
-
-	const struct spa_pod *param = build_format(&b, format,
-			cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
-			NULL, 0);
+	uint32_t param_count = build_formats(&b, cast, params);
 
 	pw_stream_add_listener(cast->stream, &cast->stream_listener,
 		&pwr_stream_events, cast);
@@ -433,7 +438,7 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 		PW_ID_ANY,
 		(PW_STREAM_FLAG_DRIVER |
 			PW_STREAM_FLAG_ALLOC_BUFFERS),
-		&param, 1);
+		params, param_count);
 }
 
 void xdpw_pwr_stream_destroy(struct xdpw_screencast_instance *cast) {
