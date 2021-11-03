@@ -222,6 +222,8 @@ static void pwr_handle_stream_state_changed(void *data,
 		break;
 	default:
 		cast->pwr_stream_state = false;
+		//if (old == PW_STREAM_STATE_STREAMING)
+		//	xdpw_wlr_frame_finish(cast);
 		break;
 	}
 }

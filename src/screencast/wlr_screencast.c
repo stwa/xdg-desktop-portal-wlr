@@ -48,7 +48,8 @@ void xdpw_wlr_frame_finish(struct xdpw_screencast_instance *cast) {
 		pwr_update_stream_param(cast);
 	}
 
-	if (cast->quit || cast->err) {
+	//if (cast->quit || cast->err) {
+	if (cast->quit) {
 		// TODO: revisit the exit condition (remove quit?)
 		// and clean up sessions that still exist if err
 		// is the cause of the instance_destroy call
