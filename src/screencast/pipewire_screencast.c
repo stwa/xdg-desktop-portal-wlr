@@ -173,6 +173,31 @@ static bool build_modifierlist(struct xdpw_screencast_instance *cast,
 	return ret;
 }
 
+static uint32_t build_formats(struct spa_pod_builder *b, struct xdpw_screencast_instance *cast, const struct spa_pod **params) {
+
+	uint32_t param_count;
+	uint32_t modifier_count;
+	uint64_t *modifiers = NULL;
+
+	if (build_modifierlist(cast, cast->screencopy_dmabuf_frame.fourcc, &modifiers, &modifier_count) && modifier_count > 0) {
+		param_count = 2;
+		params[0] = build_format(b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
+				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
+				modifiers, modifier_count);
+
+		params[1] = build_format(b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
+				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
+				NULL, 0);
+	} else {
+		param_count = 1;
+		params[0] = build_format(b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
+				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
+				NULL, 0);
+	}
+	free(modifiers);
+	return param_count;
+}
+
 static void pwr_handle_stream_process(void *data) {
 	struct xdpw_screencast_instance *cast = data;
 
@@ -237,6 +262,7 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 			const struct spa_pod *pod_modifier = &prop_modifier->value;
 			logprint(DEBUG, "pipewire: fixating format");
 
+			uint32_t n_params;
 			uint32_t n_modifiers = SPA_POD_CHOICE_N_VALUES(pod_modifier) - 1;
 			uint64_t *modifiers = SPA_POD_CHOICE_VALUES(pod_modifier);
 			modifiers++;
@@ -254,13 +280,9 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 			params[0] = fixate_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
 					cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate, &modifier);
 
-			params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
-					cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
-					&modifiers[1], n_modifiers);
+			n_params = 1;
+			n_params += build_formats(&b, cast, &params[1]);
 
-			params[2] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
-					cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
-					NULL, 0);
 
 			logprint(DEBUG, "pipewire: announced EnumFormats");
 			for (unsigned int i=0; i < 3; i++) {
@@ -545,27 +567,8 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 	struct spa_pod_builder b =
 		SPA_POD_BUILDER_INIT(params_buffer, sizeof(params_buffer));
 	const struct spa_pod *params[2];
-	uint32_t n_params;
 
-
-	uint32_t modifier_count;
-	uint64_t *modifiers = NULL;
-
-	if (build_modifierlist(cast, cast->screencopy_dmabuf_frame.fourcc, &modifiers, &modifier_count) && modifier_count > 0) {
-		n_params = 2;
-		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
-				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
-				modifiers, modifier_count);
-
-		params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
-				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
-				NULL, 0);
-	} else {
-		n_params = 1;
-		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
-				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
-				NULL, 0);
-	}
+	uint32_t n_params = build_formats(&b, cast, params);
 
 	logprint(DEBUG, "pipewire: announced EnumFormats");
 	for (unsigned int i=0; i < n_params; i++) {
@@ -573,7 +576,6 @@ void pwr_update_stream_param(struct xdpw_screencast_instance *cast) {
 	}
 
 	pw_stream_update_params(stream, params, n_params);
-	free(modifiers);
 }
 
 void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
@@ -600,25 +602,7 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 	}
 	cast->pwr_stream_state = false;
 
-	uint32_t param_count;
-	uint32_t modifier_count;
-	uint64_t *modifiers = NULL;
-
-	if (build_modifierlist(cast, cast->screencopy_dmabuf_frame.fourcc, &modifiers, &modifier_count) && modifier_count > 0) {
-		param_count = 2;
-		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_dmabuf_frame.fourcc),
-				cast->screencopy_dmabuf_frame.width, cast->screencopy_dmabuf_frame.height, cast->framerate,
-				modifiers, modifier_count);
-
-		params[1] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
-				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
-				NULL, 0);
-	} else {
-		param_count = 1;
-		params[0] = build_format(&b, xdpw_format_pw_from_drm_fourcc(cast->screencopy_frame.format),
-				cast->screencopy_frame.width, cast->screencopy_frame.height, cast->framerate,
-				NULL, 0);
-	}
+	uint32_t param_count = build_formats(&b, cast, params);
 
 	logprint(DEBUG, "pipewire: announced EnumFormats");
 	for (unsigned int i=0; i < param_count; i++) {
@@ -635,7 +619,6 @@ void xdpw_pwr_stream_create(struct xdpw_screencast_instance *cast) {
 			PW_STREAM_FLAG_ALLOC_BUFFERS),
 		params, param_count);
 
-	free(modifiers);
 }
 
 void xdpw_pwr_stream_destroy(struct xdpw_screencast_instance *cast) {
