@@ -121,7 +121,7 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 		d[0].type = SPA_DATA_MemFd;
 	} else {
 		logprint(ERROR, "pipewire: unsupported buffer type");
-		cast->err = 1;
+		cast->err |= XDPW_SCREENCAST_ERROR_UNSUPPORTED_BUFFER_TYPE;
 		return;
 	}
 
@@ -139,7 +139,7 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 
 		if (d[0].fd == -1) {
 			logprint(ERROR, "pipewire: unable to create anonymous filedescriptor");
-			cast->err = 1;
+			cast->err |= XDPW_SCREENCAST_ERROR_BUFFER_CREATION_FAILED;
 			return;
 		}
 
@@ -147,7 +147,7 @@ static void pwr_handle_stream_add_buffer(void *data, struct pw_buffer *buffer) {
 			logprint(ERROR, "pipewire: unable to truncate filedescriptor");
 			close(d[0].fd);
 			d[0].fd = -1;
-			cast->err = 1;
+			cast->err |= XDPW_SCREENCAST_ERROR_BUFFER_CREATION_FAILED;
 			return;
 		}
 
@@ -226,7 +226,7 @@ void xdpw_pwr_enqueue_buffer(struct xdpw_screencast_instance *cast) {
 	if (cast->current_frame.y_invert) {
 		//TODO: Flip buffer or set stride negative
 		buffer_corrupt = true;
-		cast->err = 1;
+		cast->err |= XDPW_SCREENCAST_ERROR_BUFFER_YINVERTED;
 	}
 
 	struct spa_meta_header *h;

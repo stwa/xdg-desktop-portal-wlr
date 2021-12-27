@@ -36,6 +36,13 @@ enum xdpw_frame_state {
   XDPW_FRAME_STATE_SUCCESS,
 };
 
+enum xdpw_screencast_error {
+  XDPW_SCREENCAST_ERROR_NONE = 0,
+  XDPW_SCREENCAST_ERROR_UNSUPPORTED_BUFFER_TYPE = 1 << 0,
+  XDPW_SCREENCAST_ERROR_BUFFER_CREATION_FAILED = 1 << 1,
+  XDPW_SCREENCAST_ERROR_BUFFER_YINVERTED = 1 << 2,
+};
+
 struct xdpw_output_chooser {
 	enum xdpw_chooser_types type;
 	char *cmd;
@@ -114,7 +121,7 @@ struct xdpw_screencast_instance {
 	struct zwlr_screencopy_frame_v1 *wlr_frame;
 	struct xdpw_screencopy_frame screencopy_frame;
 	bool with_cursor;
-	int err;
+	enum xdpw_screencast_error err;
 	bool quit;
 
 	// fps limit
