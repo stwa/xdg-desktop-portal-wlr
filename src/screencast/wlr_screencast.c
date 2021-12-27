@@ -30,6 +30,17 @@ void wlr_frame_free(struct xdpw_screencast_instance *cast) {
 void xdpw_wlr_frame_finish(struct xdpw_screencast_instance *cast) {
 	logprint(TRACE, "wlroots: finish screencopy");
 
+	if ((cast->err & XDPW_SCREENCAST_ERROR_OUTPUT_REMOVED) > 0) {
+		logprint(TRACE, "wlroots: error killing screencast");
+		struct xdpw_session *sess, *tmp;
+		wl_list_for_each_safe(sess, tmp, &cast->ctx->state->xdpw_sessions, link) {
+			if (sess->screencast_instance == cast) {
+				xdpw_session_destroy(sess);
+			}
+		}
+		return;
+	}
+
 	wlr_frame_free(cast);
 
 	if (!cast->pwr_stream_state) {
@@ -528,6 +539,15 @@ struct xdpw_wlr_output *xdpw_wlr_output_find(struct xdpw_screencast_context *ctx
 	return NULL;
 }
 
+static void wlr_stop_screencast_for_output(struct xdpw_screencast_context *ctx, struct xdpw_wlr_output *out) {
+	struct xdpw_screencast_instance *cast, *tmp;
+	wl_list_for_each_safe(cast, tmp, &ctx->screencast_instances, link) {
+		if (cast->target_output == out) {
+			cast->err |= XDPW_SCREENCAST_ERROR_OUTPUT_REMOVED;
+		}
+	}
+}
+
 static void wlr_remove_output(struct xdpw_wlr_output *out) {
 	free(out->name);
 	free(out->make);
@@ -586,6 +606,7 @@ static void wlr_registry_handle_remove(void *data, struct wl_registry *reg,
 	struct xdpw_screencast_context *ctx = data;
 	struct xdpw_wlr_output *output = xdpw_wlr_output_find(ctx, NULL, id);
 	if (output) {
+		wlr_stop_screencast_for_output(ctx, output);
 		wlr_remove_output(output);
 	}
 }
