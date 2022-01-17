@@ -98,6 +98,7 @@ void xdpw_screencast_instance_destroy(struct xdpw_screencast_instance *cast) {
 }
 
 bool setup_outputs(struct xdpw_screencast_context *ctx, struct xdpw_session *sess) {
+	print_session(sess);
 
 	struct xdpw_wlr_output *output, *tmp_o;
 	wl_list_for_each_reverse_safe(output, tmp_o, &ctx->output_list, link) {
@@ -152,6 +153,7 @@ bool setup_outputs(struct xdpw_screencast_context *ctx, struct xdpw_session *ses
 	sess->screencast_data.output_name = strdup(sess->screencast_data.screencast_instance->target_output->name);
 	logprint(INFO, "wlroots: output: %s", sess->screencast_data.output_name);
 
+	print_session(sess);
 	return true;
 
 }
@@ -292,6 +294,7 @@ static int method_screencast_select_sources(sd_bus_message *msg, void *data,
 		logprint(WARN, "dbus: select sources: no matching session %s found", sess->session_handle);
 		goto error;
 	}
+	print_session(sess);
 
 	char *key;
 	int innerRet = 0;
@@ -485,6 +488,7 @@ static int method_screencast_start(sd_bus_message *msg, void *data,
 	if (!cast) {
 		return -1;
 	}
+	print_session(sess);
 	if (!cast->initialized) {
 
 		start_screencast(cast);
@@ -515,7 +519,7 @@ static int method_screencast_start(sd_bus_message *msg, void *data,
 			"streams", "a(ua{sv})", 1,
 			cast->node_id, 3,
 			"position", "(ii)", 0, 0,
-			"size", "(ii)", cast->screencopy_frame_info[WL_SHM].width, cast->screencopy_frame_info[WL_SHM].height);
+			"size", "(ii)", cast->screencopy_frame_info[WL_SHM].width, cast->screencopy_frame_info[WL_SHM].height,
 			"source_type", "u", 1 << MONITOR,
 			"persist_mode", "u", sess->screencast_data.persist_mode,
 			"restore_data", "(suv)",
@@ -528,7 +532,7 @@ static int method_screencast_start(sd_bus_message *msg, void *data,
 			"streams", "a(ua{sv})", 1,
 			cast->node_id, 3,
 			"position", "(ii)", 0, 0,
-			"size", "(ii)", cast->screencopy_frame_info[WL_SHM].width, cast->screencopy_frame_info[WL_SHM].height);
+			"size", "(ii)", cast->screencopy_frame_info[WL_SHM].width, cast->screencopy_frame_info[WL_SHM].height,
 			"source_type", "u", 1 << MONITOR);
 	}
 

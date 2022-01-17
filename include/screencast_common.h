@@ -195,4 +195,5 @@ enum spa_video_format xdpw_format_pw_strip_alpha(enum spa_video_format format);
 
 enum xdpw_chooser_types get_chooser_type(const char *chooser_type);
 const char *chooser_type_str(enum xdpw_chooser_types chooser_type);
+void print_screencast_data(struct xdpw_screencast_session_data *data);
 #endif /* SCREENCAST_COMMON_H */
