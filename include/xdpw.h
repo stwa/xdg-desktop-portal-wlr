@@ -69,4 +69,5 @@ struct xdpw_timer *xdpw_add_timer(struct xdpw_state *state,
 
 void xdpw_destroy_timer(struct xdpw_timer *timer);
 
+void print_session(struct xdpw_session *sess);
 #endif
