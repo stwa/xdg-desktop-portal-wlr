@@ -30,10 +30,12 @@ enum xdpw_chooser_types {
 };
 
 enum xdpw_frame_state {
-  XDPW_FRAME_STATE_NONE,
+  XDPW_FRAME_STATE_NONE = 0,
+  XDPW_FRAME_STATE_CREATED,
   XDPW_FRAME_STATE_RENEG,
   XDPW_FRAME_STATE_FAILED,
   XDPW_FRAME_STATE_SUCCESS,
+  XDPW_FRAME_STATE_FINISHED,
 };
 
 struct xdpw_output_chooser {
