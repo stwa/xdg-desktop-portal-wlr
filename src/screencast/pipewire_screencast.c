@@ -242,6 +242,11 @@ static void pwr_handle_stream_param_changed(void *data, uint32_t id,
 					n_modifiers = 0;
 					flags = GBM_BO_USE_RENDERING;
 					break;
+				case DRM_FORMAT_MOD_LINEAR:
+					modifiers = NULL;
+					n_modifiers = 0;
+					flags = GBM_BO_USE_RENDERING | GBM_BO_USE_LINEAR;
+					break;
 				default:
 					continue;
 				}
