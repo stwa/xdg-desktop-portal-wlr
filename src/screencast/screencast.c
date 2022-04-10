@@ -329,41 +329,72 @@ static int method_screencast_select_sources(sd_bus_message *msg, void *data,
 			uint32_t restore_data_version;
 			innerRet = sd_bus_message_enter_container(msg, 'v', "(suv)");
 			if (innerRet < 0) {
+				logprint(ERROR, "dbus: error entering variant");
 				return innerRet;
 			}
+			innerRet = sd_bus_message_enter_container(msg, 'r', "suv");
+			if (innerRet < 0) {
+				logprint(ERROR, "dbus: error entering struct");
+				return innerRet;
+			}
+			sd_bus_message_read(msg, "s", &portal_vendor);
 			if (strcmp(portal_vendor, "wlroots") != 0) {
-			sd_bus_message_read(msg, "v", "su", &portal_vendor, &restore_data_version);
 				logprint(INFO, "dbus: skipping restore_data from another vendor (%s)", portal_vendor);
 				continue;
 			}
-			innerRet = sd_bus_message_enter_container(msg, 'v', "a{sv}");
-			if (innerRet < 0) {
-				return innerRet;
-			}
-			innerRet = sd_bus_message_enter_container(msg, 'a', "{sv}");
-			if (innerRet < 0) {
-				return innerRet;
-			}
-			logprint(INFO, "dbus: restoring session from data");
-			int rdRet;
-			char *rdKey;
-			while ((innerRet = sd_bus_message_enter_container(msg, 'e', "sv")) > 0) {
-				rdRet = sd_bus_message_read(msg, "s", &rdKey);
-				if (rdRet < 0) {
-					return rdRet;
+			sd_bus_message_read(msg, "u", &restore_data_version);
+			if (restore_data_version == 1) {
+				innerRet = sd_bus_message_enter_container(msg, 'v', "a{sv}");
+				if (innerRet < 0) {
+					return innerRet;
 				}
-				if (strcmp(rdKey, "output_name") == 0) {
-					char *output_name;
-					sd_bus_message_read(msg, "v", "s", &output_name);
-					if (output_name) {
-						sess->screencast_data.output_name = strdup(output_name);
+				innerRet = sd_bus_message_enter_container(msg, 'a', "{sv}");
+				if (innerRet < 0) {
+					return innerRet;
+				}
+				logprint(INFO, "dbus: restoring session from data");
+				int rdRet;
+				char *rdKey;
+				while ((innerRet = sd_bus_message_enter_container(msg, 'e', "sv")) > 0) {
+					rdRet = sd_bus_message_read(msg, "s", &rdKey);
+					if (rdRet < 0) {
+						return rdRet;
 					}
-					logprint(INFO, "dbus: option restore_data.output_name:%s", sess->screencast_data.output_name);
-				} else {
-					logprint(WARN, "dbus: unknown option %s", rdKey);
-					sd_bus_message_skip(msg, "v");
+					if (strcmp(rdKey, "output_name") == 0) {
+						char *output_name;
+						sd_bus_message_read(msg, "v", "s", &output_name);
+						if (output_name) {
+							sess->screencast_data.output_name = strdup(output_name);
+						}
+						logprint(INFO, "dbus: option restore_data.output_name:%s", sess->screencast_data.output_name);
+					} else {
+						logprint(WARN, "dbus: unknown option %s", rdKey);
+						sd_bus_message_skip(msg, "v");
+					}
+					innerRet = sd_bus_message_exit_container(msg); // dictionary
+					if (innerRet < 0) {
+						return innerRet;
+					}
 				}
+				if (innerRet < 0) {
+					return innerRet;
+				}
+				innerRet = sd_bus_message_exit_container(msg); //array
+				if (innerRet < 0) {
+					return innerRet;
+				}
+				innerRet = sd_bus_message_exit_container(msg); //variant
+				if (innerRet < 0) {
+					return innerRet;
+				}
+			} else {
+				logprint(ERROR, "Unknown restore_data version: %u", restore_data_version);
 			}
+			innerRet = sd_bus_message_exit_container(msg); // struct
+			if (innerRet < 0) {
+				return innerRet;
+			}
+			innerRet = sd_bus_message_exit_container(msg); // variant
 			if (innerRet < 0) {
 				return innerRet;
 			}
