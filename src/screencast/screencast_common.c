@@ -142,8 +142,8 @@ struct xdpw_buffer *xdpw_buffer_create(struct xdpw_screencast_instance *cast,
 			flags |= GBM_BO_USE_LINEAR;
 		}
 
-		buffer->bo = gbm_bo_create(cast->ctx->gbm, frame_info->width, frame_info->height,
-				frame_info->format, flags);
+		buffer->bo = gbm_bo_create_with_modifiers2(cast->ctx->gbm, frame_info->width, frame_info->height,
+				frame_info->format, NULL, 0, flags);
 		if (buffer->bo == NULL) {
 			logprint(ERROR, "xdpw: failed to create gbm_bo");
 			free(buffer);
