@@ -48,7 +48,7 @@ void exec_with_shell(char *command) {
 }
 
 void xdpw_screencast_instance_init(struct xdpw_screencast_context *ctx,
-		struct xdpw_screencast_instance *cast, struct xdpw_wlr_output *out, bool with_cursor) {
+		struct xdpw_screencast_instance *cast, struct xdpw_wlr_output *out, enum cursor_modes cursor_mode) {
 
 	// only run exec_before if there's no other instance running that already ran it
 	if (wl_list_empty(&ctx->screencast_instances)) {
@@ -68,7 +68,7 @@ void xdpw_screencast_instance_init(struct xdpw_screencast_context *ctx,
 		cast->max_framerate = (uint32_t)out->framerate;
 	}
 	cast->framerate = cast->max_framerate;
-	cast->with_cursor = with_cursor;
+	cast->cursor_mode = cursor_mode;
 	cast->refcount = 1;
 	cast->node_id = SPA_ID_INVALID;
 	cast->avoid_dmabufs = false;
@@ -112,7 +112,7 @@ void xdpw_screencast_instance_teardown(struct xdpw_screencast_instance *cast) {
 	}
 }
 
-bool setup_outputs(struct xdpw_screencast_context *ctx, struct xdpw_session *sess, bool with_cursor) {
+bool setup_outputs(struct xdpw_screencast_context *ctx, struct xdpw_session *sess, enum cursor_modes cursor_mode) {
 
 	struct xdpw_wlr_output *output, *tmp_o;
 	wl_list_for_each_reverse_safe(output, tmp_o, &ctx->output_list, link) {
@@ -154,7 +154,7 @@ bool setup_outputs(struct xdpw_screencast_context *ctx, struct xdpw_session *ses
 	if (!sess->screencast_instance) {
 		sess->screencast_instance = calloc(1, sizeof(struct xdpw_screencast_instance));
 		xdpw_screencast_instance_init(ctx, sess->screencast_instance,
-			out, with_cursor);
+			out, cursor_mode);
 	}
 	logprint(INFO, "wlroots: output: %s",
 		sess->screencast_instance->target_output->name);
@@ -291,7 +291,7 @@ static int method_screencast_select_sources(sd_bus_message *msg, void *data,
 	logprint(INFO, "dbus: select sources method invoked");
 
 	// default to embedded cursor mode if not specified
-	bool cursor_embedded = true;
+	uint32_t cursor_mode = EMBEDDED;
 
 	char *request_handle, *session_handle, *app_id;
 	ret = sd_bus_message_read(msg, "oos", &request_handle, &session_handle, &app_id);
@@ -328,14 +328,13 @@ static int method_screencast_select_sources(sd_bus_message *msg, void *data,
 			}
 			logprint(INFO, "dbus: option types:%x", mask);
 		} else if (strcmp(key, "cursor_mode") == 0) {
-			uint32_t cursor_mode;
 			sd_bus_message_read(msg, "v", "u", &cursor_mode);
-			if (cursor_mode & HIDDEN) {
-				cursor_embedded = false;
-			}
 			if (cursor_mode & METADATA) {
-				logprint(ERROR, "dbus: unsupported cursor mode requested, cancelling");
-				goto error;
+				cursor_mode = METADATA;
+			} else if (cursor_mode & EMBEDDED) {
+				cursor_mode = EMBEDDED;
+			} else if (cursor_mode & HIDDEN) {
+				cursor_mode = HIDDEN;
 			}
 			logprint(INFO, "dbus: option cursor_mode:%x", cursor_mode);
 		} else {
@@ -360,7 +359,7 @@ static int method_screencast_select_sources(sd_bus_message *msg, void *data,
 	wl_list_for_each_reverse_safe(sess, tmp_s, &state->xdpw_sessions, link) {
 		if (strcmp(sess->session_handle, session_handle) == 0) {
 				logprint(DEBUG, "dbus: select sources: found matching session %s", sess->session_handle);
-				output_selection_canceled = !setup_outputs(ctx, sess, cursor_embedded);
+				output_selection_canceled = !setup_outputs(ctx, sess, cursor_mode);
 		}
 	}
 
@@ -383,7 +382,6 @@ static int method_screencast_select_sources(sd_bus_message *msg, void *data,
 	sd_bus_message_unref(reply);
 	return 0;
 
-error:
 	wl_list_for_each_reverse_safe(sess, tmp_s, &state->xdpw_sessions, link) {
 		if (strcmp(sess->session_handle, session_handle) == 0) {
 				logprint(DEBUG, "dbus: select sources error: destroying matching session %s", sess->session_handle);
