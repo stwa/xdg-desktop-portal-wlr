@@ -267,14 +267,15 @@ static void ext_surface_cursor_buffer_info(void *data, struct ext_screencopy_sur
 
 	logprint(TRACE, "wlroots: cursor_buffer_info event handler");
 
-	struct xdpw_screencopy_cursor_frame_info *(screencopy_cursor_frame_info[2]);
+	struct xdpw_screencopy_cursor_frame_info *screencopy_cursor_frame_info = wl_array_add(&cast->screencopy_cursor_frame_infos, sizeof(struct xdpw_screencopy_cursor_frame_info));
+	screencopy_cursor_frame_info->seat_name = strdup(seat_name);
+	screencopy_cursor_frame_info->input_type = input_type;
+	screencopy_cursor_frame_info->format = drm_format;
+	screencopy_cursor_frame_info->width = width;
+	screencopy_cursor_frame_info->height = height;
+	screencopy_cursor_frame_info->stride = stride;
+	screencopy_cursor_frame_info->size = stride * height;
 
-	screencopy_cursor_frame_info = wl_array_add(&cast->screencopy_cursor_frame_infos, sizeof(struct xdpw_screencopy_cursor_frame_info[2]));
-	screencopy_cursor_frame_info[buffer_type]->format = drm_format;
-	screencopy_cursor_frame_info[buffer_type]->width = width;
-	screencopy_cursor_frame_info[buffer_type]->height = height;
-	screencopy_cursor_frame_info[buffer_type]->stride = stride;
-	screencopy_cursor_frame_info[buffer_type]->size = stride * height;
 }
 
 static void ext_surface_init_done(void *data, struct ext_screencopy_surface_v1 *surface) {
@@ -283,7 +284,7 @@ static void ext_surface_init_done(void *data, struct ext_screencopy_surface_v1 *
 	logprint(TRACE, "wlroots: init_done event handler");
 
 	if (cast->cursor_mode == METADATA) {
-		struct xdpw_screencopy_cursor_frame_info *(screencopy_cursor_frame_info[2]);
+		struct xdpw_screencopy_cursor_frame_info *screencopy_cursor_frame_info;
 		wl_array_for_each(screencopy_cursor_frame_info, &cast->screencopy_cursor_frame_infos) {
 			if (screencopy_cursor_frame_info[0]->input_type == EXT_SCREENCOPY_INPUT_TYPE_POINTER) {
 				cast->xdpw_cursor.xdpw_buffer = xdpw_buffer_create(cast, WL_SHM, (struct xdpw_screencopy_frame_info*)screencopy_cursor_frame_info[WL_SHM]);
