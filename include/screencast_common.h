@@ -111,6 +111,7 @@ struct xdpw_screencast_context {
 	// pipewire
 	struct pw_context *pwr_context;
 	struct pw_core *core;
+	struct spa_hook core_listener;
 
 	// wlroots
 	struct wl_list output_list;

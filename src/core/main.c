@@ -196,6 +196,10 @@ int main(int argc, char *argv[]) {
 	state.timer_poll_fd = pollfds[EVENT_LOOP_TIMER].fd;
 
 	while (1) {
+    if (state.error) {
+			logprint(ERROR, "xdpw encountered an error");
+			goto error;
+    }
 		ret = poll(pollfds, sizeof(pollfds) / sizeof(pollfds[0]), -1);
 		if (ret < 0) {
 			logprint(ERROR, "poll failed: %s", strerror(errno));

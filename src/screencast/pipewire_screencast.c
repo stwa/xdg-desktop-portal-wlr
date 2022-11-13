@@ -511,6 +511,20 @@ void xdpw_pwr_stream_destroy(struct xdpw_screencast_instance *cast) {
 	cast->stream = NULL;
 }
 
+static void pwr_handle_core_error(void *data, uint32_t id, int seq, int res, const char* msg) {
+	struct xdpw_screencast_context *ctx = data;
+	logprint(DEBUG, "pipewire: core error: %u, %d, %d: %s", id, seq, res, msg);
+	if (id == PW_ID_CORE && res == -EPIPE) {
+		logprint(WARN, "pipewire: connection lost");
+		ctx->state->error = true;
+	}
+}
+
+static const struct pw_core_events pwr_core_events = {
+	PW_VERSION_CORE_EVENTS,
+	.error = pwr_handle_core_error,
+};
+
 int xdpw_pwr_context_create(struct xdpw_state *state) {
 	struct xdpw_screencast_context *ctx = &state->screencast;
 
@@ -530,6 +544,7 @@ int xdpw_pwr_context_create(struct xdpw_state *state) {
 			logprint(ERROR, "pipewire: couldn't connect to context");
 			return -1;
 		}
+		pw_core_add_listener(ctx->core, &ctx->core_listener, &pwr_core_events, ctx);
 	}
 	return 0;
 }
