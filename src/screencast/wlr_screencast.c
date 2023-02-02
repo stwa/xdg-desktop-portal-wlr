@@ -18,6 +18,7 @@
 #include <xf86drm.h>
 
 #include "screencast.h"
+#include "screencast_common.h"
 #include "pipewire_screencast.h"
 #include "xdpw.h"
 #include "logger.h"
@@ -381,7 +382,7 @@ static bool wait_chooser(pid_t pid) {
 }
 
 static bool wlr_output_chooser(struct xdpw_output_chooser *chooser,
-		struct wl_list *output_list, struct xdpw_wlr_output **output) {
+		struct wl_list *output_list, struct xdpw_wlr_output **output, struct xdpw_frame_crop **region) {
 	logprint(DEBUG, "wlroots: output chooser called");
 	struct xdpw_wlr_output *out;
 	size_t name_size = 0;
@@ -451,12 +452,19 @@ static bool wlr_output_chooser(struct xdpw_output_chooser *chooser,
 		*p = '\0';
 	}
 
-	logprint(TRACE, "wlroots: output chooser %s selects output %s", chooser->cmd, name);
+	char *output_name = strtok(name, " ");
+	char *region_value = strtok(NULL, " ");
+	logprint(INFO, "wlroots: output chooser %s selects output %s and region %s", chooser->cmd, output_name, region_value);
 	wl_list_for_each(out, output_list, link) {
 		if (strcmp(out->name, name) == 0) {
 			*output = out;
 			break;
 		}
+	}
+	if (region_value != NULL && *region_value != '\0') {
+		struct xdpw_frame_crop *selected_region = malloc(sizeof(struct xdpw_frame_crop));
+		sscanf(region_value, "%u,%u:%ux%u", &selected_region->x, &selected_region->y, &selected_region->width, &selected_region->height);
+		*region = selected_region;
 	}
 	free(name);
 
@@ -486,7 +494,7 @@ static struct xdpw_wlr_output *wlr_output_chooser_default(struct wl_list *output
 	struct xdpw_wlr_output *output = NULL;
 	bool ret;
 	for (size_t i = 0; i<N; i++) {
-		ret = wlr_output_chooser(&default_chooser[i], output_list, &output);
+		ret = wlr_output_chooser(&default_chooser[i], output_list, &output, NULL);
 		if (!ret) {
 			logprint(DEBUG, "wlroots: output chooser %s not found. Trying next one.",
 					default_chooser[i].cmd);
@@ -524,7 +532,8 @@ struct xdpw_wlr_output *xdpw_wlr_output_chooser(struct xdpw_screencast_context *
 			ctx->state->config->screencast_conf.chooser_cmd
 		};
 		logprint(DEBUG, "wlroots: output chooser %s (%d)", chooser.cmd, chooser.type);
-		bool ret = wlr_output_chooser(&chooser, &ctx->output_list, &output);
+		struct xdpw_frame_crop *region = NULL;
+		bool ret = wlr_output_chooser(&chooser, &ctx->output_list, &output, &region);
 		if (!ret) {
 			logprint(ERROR, "wlroots: output chooser %s failed", chooser.cmd);
 			goto end;
@@ -533,6 +542,10 @@ struct xdpw_wlr_output *xdpw_wlr_output_chooser(struct xdpw_screencast_context *
 			logprint(DEBUG, "wlroots: output chooser selects %s", output->name);
 		} else {
 			logprint(DEBUG, "wlroots: output chooser canceled");
+		}
+		if (region) {
+			logprint(DEBUG, "wlroots: region selected");
+			ctx->state->config->screencast_conf.region = *region;
 		}
 		return output;
 	}
